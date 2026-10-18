@@ -186,12 +186,13 @@ async function requestWakeLock() {
 	// OffDrive stuff		
 
 	window.AudioContext = window.AudioContext || window.webkitAudioContext;
-function registerMedia(track, artist, album) {
+function registerMedia(song) {
     if ('mediaSession' in navigator) {
+        const tags = getSongTags(song);
         navigator.mediaSession.metadata = new MediaMetadata({
-            title: track,
-            artist: artist,
-            album: album,
+            title: tags.title,
+            artist: tags.artist,
+            album: tags.album,
             artwork: [
                 { src: 'cover.jpg', sizes: '512x512', type: 'image/jpeg' }
             ]
@@ -251,7 +252,7 @@ function registerMedia(track, artist, album) {
 				if(typeof preLoads[this.songID] !== 'undefined' && preLoads[this.songID] !== loadingConst){
 //console.log('loadSong: found as preload', song);				
 					this.audio.src = preLoads[this.songID].url;
-					registerMedia(this.track, this.artist, this.album);
+					registerMedia(song);
 //console.log('loadSong: this.audio.src', this.audio.src);	
 					this.afterLoadSong(onSuccess, song);
 				} else {
@@ -259,11 +260,7 @@ function registerMedia(track, artist, album) {
                 .then((audioUrl) => {
                     this.audio.src = audioUrl;
 
-                    registerMedia(
-                        this.track,
-                        this.artist,
-                        this.album
-                    );
+                    registerMedia(song);
 
                     // Keep the existing preload shape.
                     preLoads[this.songID] = {
