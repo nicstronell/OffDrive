@@ -1,0 +1,67 @@
+<html>
+  <head>
+    <title>Off Drive Music</title>
+	<meta name="viewport" content="initial-scale=1.0">   
+    <meta charset="utf-8" />
+	<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
+  </head>
+	<body style="min-width:350px; max-width:350px; white-space:nowrap; overflow-x:hidden">
+		<h1>off Drive Music - about</h1>
+		<div style="white-space:wrap; padding:8px;">
+			So this music player has 3 main objectives:
+			<OL>
+				<LI>Be able to play music straight off a Google Drive (anywhere via a browser)</LI>
+				<LI>Not require a backend server (pure html/javascript)</LI>
+				<LI>Allow me not have to choose what music to listen to</LI>
+			</OL>
+			This has resulted in some functionality restrictions which means this might not be the music solution for you<br />
+			<br />
+			<br />
+			Briefly, the system operates by 
+			<UL>
+				<LI>the user logging in with their Google account via the <span class="fas fa-sign-in-alt"></span> button</LI>
+				<LI>The app then scans that google drive for a directories called "Music" and asks the user which one contains the files they want to listen to via the app <SUP>1</SUP></LI>
+				<LI>The files are then indexed (using the directory information) and a random selection of 16 songs is added to the playlist and they begin to play</LI>
+				<LI>After that playlist is finished, another random 16 is chosen (which have not been previously played).</LI>
+			</UL>
+			That was basically all I wanted, but there is a bit more, with quirks because of the technical aim. You may also notice a set of files call "OffDrive.*" appearing on your Google Drive. Longish story, but you really only need the OffDrive.index file - this is the index of your music. I will probably change this soon not to save all the backups.
+			<br />
+			<br />
+			The initial indexing uses the file system to provide the song/artist/album info, which is why it's best to set up the directories in the expected manner. Obviously, the music files have that information in them, but opening each song to get that info would be time and network intensive, so, instead, as the files play, the song title is updated from the tags in the file. The artist and album are not <i>automatically</i> updated, but you can choose to use the info in the file, or the directory tree, by (when using desktop, not mobile) hover over the song/album/artist and you'll see a couple of icons to update from the file tags or the directory tree. If none of that is accurate, you can click and manually edit song/album/artist.
+			<br />
+			<br />
+			Sadly, a major failing of this app is the Google authentication which runs out every 60 minutes. So every 60 minutes, there will be a prompt to login to Google again. The player will also stop playing at this time because, it can't load th next song, nor update the index with the "played" count.  
+			<br />
+			<br />
+			More specifically,
+			<UL>
+				<LI><span class="fas fa-clock"></span> button will set the music to stop playing in the future. Each button click adds 15 minutes to the stop time.</LI>
+				<LI><span class="fas fa-pause"></span> button will pause at the end of the song (I hate stopping a song before the end).</LI>
+				<LI><span class="fas fa-step-forward"></span> Next! If the next song hasn't finished pre-loading, you mnight have to manually press play when it does.</LI>
+				<LI><span class="fas fa-archive"></span> this button marks the currently playing song as rubbish, and won't play again</LI>
+				<LI><span class="fas fa-eject"></span> this button immediately stops the current song and marks it as non-existant (won't actually delete the file)</LI>
+				<LI><span class="fas fa-search"></span> this is actually a search if you want to find a particular song to play. This button toggles the search/playlist. You need at least 3 characters to fire the search, and once songs are found you can add them all to the playlist, or add individual ones.</LI>
+				<LI><span class="fas fa-smile"></span> clicking this song switch to your "best songs ever play list". How do you make that playlist? Well (on desktop, not mobile) when a song is playing and you hover over the song name, you will see a "hamburger" drag icon to the left of the name. Drag the playing song over the icon to drop it into the "best songs ever play list".</LI>
+				<LI><span class="fas fa-cloud"></span> <span class="fas fa-medal"></span> <span class="fas fa-rocket"></span> Are the "sleep" "that song deserves a medal" and "Tania might like" playlists and songs can be added by dragging in the same way as the "best songs ever play list". Just clicking those icons, switches to those playlist.</LI>
+				<LI><span class="fas fa-calendar-times"></span>/<span class="fas fa-calendar"></span>/<span class="fas fa-calendar-day"></span> toggle button changes the play mode. Modes are "totes random" (no regard to the calendar), "recent unplayed songs" and "songs played or not)"</LI>
+				<LI><span class="fas fa-arrow-right"></span> adds some more button to the right because I couldn't fit them in. The most important button is the <span class="fas fa-low-vision"></span> button that will look for new files on your Google drive that aren't in the index (you added some more files to your Drive you wanna play). Depending on how many files you've got, this will take a while, but you can carry on playing songs normally as the re-indexing happens.</LI>
+			</UL>
+			<br />
+			Some extra button that are more technical,
+			<UL>
+				<LI><span class="fas fa-meteor"></span> the meteor will blow away the dinosaur that is the current play list, and when a new playlist is required (at the end of the next song) a new playlist will be created (governed by the play mode)</LI>
+				<LI><span class="fas fa-bullseye"></span> some times the saving of the index goes awry and you just might wanna make it stop. How do you know it's busted? Well you might see some green dots appearing under the second row of buttons. This means the index is about to be saved. Blues dots means the saving process is underway. Red dots means it's taking a long time. If you're sick of the red dots, hit this target. </LI>
+				<LI><span class="fas fa-file-import"></span> for some reason, you may want to force a re-load of the index (from the latest version on the Google drive). Just because.</LI>
+				<LI><span class="fas fa-file-import"></span> this is mostly for mobile/tablet use. Expands to full screen. I never do this.</LI>
+				<LI><span class="fas fa-sign-out-alt"></span> some weird shit is happening and you want to re-login. You're probably better just refreshing the page.</LI>
+				<LI><span class="fas fa-person-booth"></span> this is the stupiest thing I ever got involved in, totally log me out and recind all permissions I ever accepted. Can see no reason you'd ever do this.</LI>
+			</UL>
+			<br />
+			Also, you can click a song in the play list and it will load that as the next song.
+			<BR />
+			<BR />
+			1 - It's best if the directories on your drive that are under the "Music" directory are organised by "Music/Artist Name/Album Name/song files" (where the files can be MP3 or FLAC).
+		</div>
+	</body>
+</html>

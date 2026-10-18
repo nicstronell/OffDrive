@@ -1,0 +1,2520 @@
+<html>
+  <head>
+	<title>Off Drive Music</title>
+	<meta charset="utf-8" />
+	<style>
+		.btn{
+			margin:4px;
+			min-height:42px;
+			max-height:42px;
+			max-width:42px;
+		}
+		.btn-naked{
+			min-height:16px;
+			max-height:16px;
+			min-width:16px;
+			max-width:16px;
+		}
+		.dot{
+ 			margin:0px 16px -16px 16px; 
+			padding:0; 
+			height:8px; 
+			width:8px; 
+			border-radius:50%; 
+			display:inline-block;
+		}
+		.green{
+			background-color:#4b4; 
+		}
+		.red{
+			background-color:red; 
+		}
+		.blue{
+			background-color:#007BFF; 
+		}
+		.rowWithoutOptions th:nth-child(1) { width:0%;  }
+		.rowWithoutOptions th:nth-child(2) { width:100%; }
+		.rowWithoutOptions th:nth-child(3) { width:0%; }
+		.rowWithoutOptions button { display:none; }
+		.rowWithOptions th:nth-child(1) { width:10%; }
+		.rowWithOptions th:nth-child(2) { width:80%; }
+		.rowWithOptions th:nth-child(3) { width:10%; }
+		.rowWithOptions button { display:inline-block; }
+		
+		::backdrop
+		{
+    		background-color: white;
+		}
+		body {
+    		height: 100vh;
+ 		}
+	</style>
+    <script>
+// Google stuff		
+	document.cookie = 'G_AUTH2_MIGRATION=enforced';
+	const SCOPE = 'https://www.googleapis.com/auth/drive';
+	const API_KEY = '';
+	const CLIENT_ID = '968154554591-d6rapi74o8jpfh4onflmkkfm7p7j0478.apps.googleusercontent.com';
+	const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+	const SCOPES = 'https://www.googleapis.com/auth/drive';
+    var gapiInited = false;
+	var G_TOKEN = null;	
+	var client = null;
+
+    function handleClientLoad() {
+//console.log('inside client load');		
+        client = google.accounts.oauth2.initTokenClient({
+	       	client_id: CLIENT_ID,
+	        scope: SCOPES,
+    	    callback: (response) => {
+//console.log('in client, response = ', response);			
+				if (response && response.access_token) {
+					expireTime = new Date(Date.now() + (response.expires_in - 64) * 1000);
+					nearlyExpireTime = new Date(Date.now() + (response.expires_in - (4 * 64)) * 1000);
+					setOffTime(expireTime);
+					G_TOKEN = response.access_token;
+					pause(false);
+//console.log('G_TOKEN = ', G_TOKEN);					
+					$('#sign-in-or-out-button').html('<span class="fas fa-sign-out-alt"></span>');
+					$('#revoke-access-button').css('display', 'inline-block');
+					$('#index_status').html('You are currently signed in and have granted access to this app.');
+					reloadFlag=true;
+//console.log('about to initialise...');
+					setTimeout(initialise, callDelay*4);
+				} else {
+					$('#sign-in-or-out-button').html('<span class="fas fa-sign-in-alt"></span>');
+					$('#revoke-access-button').css('display', 'none');
+					$('#index_status').html('You have not authorized this app or you are signed out.');
+				}
+			},
+	  	});
+	}
+
+	function requestAccess(){
+		G_TOKEN = null;	
+		offTime = null;
+		client.requestAccessToken({ prompt: '' });
+	}
+      async function initializeGapiClient() {
+        await gapi.client.init({
+          apiKey: API_KEY,
+          discoveryDocs: [DISCOVERY_DOC],
+        });
+         gapiInited = true;
+        client.requestAccessToken({ prompt: '' });
+      }
+	  function handleAPILoad() {
+      	gapi.load('client', initializeGapiClient);
+      }
+	</script>
+	<script src="https://accounts.google.com/gsi/client"></script>
+	<script src="https://apis.google.com/js/api.js" onload="handleAPILoad()"></script>	
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+	<script src="musicmetadata.js"></script>  
+  	<script src="https://kit.fontawesome.com/1f27e20cdd.js" crossorigin="anonymous"></script>
+	<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+	<script>
+		function playIfNotPlaying()
+		{
+			saveLock=false;
+			saveCall=0;
+			dotColor='grey';
+			window.onbeforeunload = null;
+			if(player)
+				setTimeout(() => {if(!player.isPlaying) player.audio.play();}, 4 * callDelay);
+		}
+		function nextIfNotPlaying()
+		{
+			saveLock=false;
+			saveCall=0;
+			dotColor='grey';
+			window.onbeforeunload = null;
+//			if(player)
+//				setTimeout(() => {if(!player.isPlaying) playNextSong;}, 4 * callDelay);
+		}
+		
+		function writeDebug(info){
+			$('#debugInfo').html(
+				$('#debugInfo').html() +
+				'<pre onclick="$(this).hide()">' + info + '</pre>'
+			);
+		}
+		
+window.onerror = function (message, source, lineno, colno, error) {
+    let details = '';
+
+    if (error && error.stack) {
+        details = error.stack;
+    } else {
+        details = message + ' at ' + source + ':' + lineno + ':' + colno;
+    }
+
+    writeDebug(details);
+
+	nextIfNotPlaying();
+};
+window.addEventListener("unhandledrejection", function (event) {
+    let details = '';
+    writeDebug('event.reason' + event.reason + '\r\n'+ 'event.reason.stack' + event.reason.stack + '\r\n');
+
+    if (event.reason && event.reason.stack) {
+        details = event.reason.stack;
+    } else {
+        details = JSON.stringify(event.reason);
+    }
+
+    writeDebug('Unhandled Promise Rejection:\n' + details);
+	
+	nextIfNotPlaying();
+});
+		
+let wakeLock = null;
+
+async function requestWakeLock() {
+    try {
+        wakeLock = await navigator.wakeLock.request('screen');
+    } catch (err) {
+        console.error(`${err.name}, ${err.message}`);
+    }
+}
+
+// Call this when the user hits 'Play'
+//requestWakeLock();
+</script>
+
+<script>
+	// OffDrive stuff		
+
+	window.AudioContext = window.AudioContext || window.webkitAudioContext;
+function registerMedia(track, artist, album) {
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: track,
+            artist: artist,
+            album: album,
+            artwork: [
+                { src: 'cover.jpg', sizes: '512x512', type: 'image/jpeg' }
+            ]
+        });
+
+        // Crucial: Register actions to keep the session "alive"
+        navigator.mediaSession.setActionHandler('play', () => {  player.audio.play(); });
+        navigator.mediaSession.setActionHandler('pause', () => {  player.audio.pause(); });
+        navigator.mediaSession.setActionHandler('nexttrack', () => { playNextSong(); });
+        navigator.mediaSession.setActionHandler('previoustrack', () => { makePlaylist(); });
+    }
+}
+	class Song {
+	  constructor(id, mimeType, played, status, folderId) {
+			this.m = mimeType; 						// mimetype
+			this.p = played;   						// played count
+			this.s = status;   						// status
+			this.l = '';       						// location
+			this.a = new Date().toISOString();		// date added
+			this.i = id;       						// google file id
+		  	this.d = null;     						// date last played
+		  	this.f = folderId; 						// parent folder ID
+		}
+	}
+
+	class SongTags{
+	  constructor(title, artist, album, playedCount) {
+			this.title = title;
+			this.artist = artist;
+			this.album = album;
+			this.playedCount = playedCount;
+		}
+	}	
+
+	class Player{
+		constructor(audio){
+//console.log('Player constructor: audio', audio);			
+			this.audio = audio;
+//console.log('Player constructor: this.audio', this.audio);			
+			this.songID = '';
+			this.fileTags = new SongTags();
+			this.treeTags = new SongTags();
+			this.audio.onended = () => { this.playing = false; playNextSong(); };
+//			this.audio.addEventListener("ended", () => {
+// 				playTrack(getNextSong());
+//			});
+			this.audio.onplay = () => { saveCall++; };
+		}
+		loadSong(song, onSuccess, onFailure) {
+//console.log('loadSong: this.playing', this.playing);			
+			if(!this.audio.playing){
+				this.songID = song.i;
+//console.log('loadSong: song, this.songID', song, this.songID);			
+//console.log('loadSong: trying to load', song);				
+//console.log('loadSong: preLoads', preLoads);				
+//console.log('loadSong: preLoads[this.songID]', preLoads[this.songID]);				
+				if(typeof preLoads[this.songID] !== 'undefined' && preLoads[this.songID] !== loadingConst){
+//console.log('loadSong: found as preload', song);				
+					this.audio.src = preLoads[this.songID].url;
+					registerMedia(this.track, this.artist, this.album);
+//console.log('loadSong: this.audio.src', this.audio.src);	
+					this.afterLoadSong(onSuccess, song);
+				} else {
+            downloadDriveAudioUrl(this.songID, song.m)
+                .then((audioUrl) => {
+                    this.audio.src = audioUrl;
+
+                    registerMedia(
+                        this.track,
+                        this.artist,
+                        this.album
+                    );
+
+                    // Keep the existing preload shape.
+                    preLoads[this.songID] = {
+                        url: audioUrl
+                    };
+
+                    // Preserve the existing tag-loading behaviour.
+                    getFileTags(
+                        this.songID,
+                        setPreLoadTags
+                    );
+
+                    this.afterLoadSong(onSuccess, song);
+                })
+                .catch((err) => {
+                    console.log(
+                        '*** song load error',
+                        err,
+                        this.songID
+                    );
+
+                    deadSong(
+                        this.songID,
+                        err?.errors || [
+                            {
+                                message:
+                                    err?.message ||
+                                    String(err)
+                            }
+                        ],
+                        true
+                    );
+
+                    this.kill();
+
+                    if (onFailure) {
+                        onFailure();
+                    }
+                });
+				}
+			}
+		}
+		afterLoadSong(onSuccess, song){
+//console.log('afterLoadSong, about to play: isPaused()', isPaused());			
+			if(!isPaused()) this.audio.play();
+			if(song.s == '?') {
+				song.s = '-';
+			}
+			localStorage.setItem('savedSongInfo', JSON.stringify(song));
+			if(songList.length > 0) {
+				setPlayingTags(this.Tags);
+			} else {
+				setPlayingTags(getSongTags(song));
+			}
+//console.log('afterLoadSong, getTagsFromTree');			
+			getTagsFromTree([], song.i, song.i, (tags, songID) => { if(songID == song.i) this.treeTags = tags; });
+//console.log('afterLoadSong, getFileTags');			
+			getFileTags(song.i, (tags, songID) => { if(songID == song.i) this.fileTags = tags; });
+//console.log('load song, before onSuccess');
+			if(onSuccess)
+				onSuccess();
+			setTimeout(updatePlayingSongStats, 1024);
+			removeFromPlaylist(this.songID);
+		}
+		kill() {
+			this.audio.pause();
+			this.audio.src = null;
+			this.songID = '';
+			this.treeTags = new SongTags();
+			this.fileTags = new SongTags();
+		}
+		get Song(){
+//console.log('player Song: songID, Song', this.songID, getSongFromID(this.songID));			
+			return getSongFromID(this.songID);
+		}
+		get Tags() {
+//console.log('player Tags: Song', this.Song);			
+			return getSongTags(this.Song);
+		}
+		get isPlaying() {
+			return !this.audio.paused && 
+			   !this.audio.ended && 
+			   this.audio.currentTime > 0 && 
+			   this.audio.readyState > 2;
+		}
+	}
+		
+	function updatePlayingSongStats(){
+		var song = player.Song;
+//console.log('in playingSongStats, song = ', song);						
+		if(song){
+			song.p++;
+			song.d = new Date().getTime();
+		}
+		else{
+			setTimeout(updatePlayingSongStats, 1024);
+		}
+//console.log('in playingSongStats, mods made, song = ', song);						
+	}
+		
+	function deadSong(songID, error, playNext){
+		try{
+//console.log('in deadsong', songID, error, playNext);
+			$('#index_status').html('failed to load file ' + songID + ' (error = '+error+')');
+//console.log('dead song ' + songID + ' (error = '+error+')', getMemoryInfo());
+			var deadSong=getSongFromID(songID);
+			switch(deadSong.s)
+			{
+				case '':
+				case '-':
+					updateStatus('?', songID);
+					break;
+				case '?':
+					updateStatus('D', songID);
+					break;
+			}
+			removeFromPlaylist(songID);
+			if(playNext)
+				playNextSong();
+		}
+		catch(e){
+//console.log('dead song ' + songID + ' could not prononce death (error = '+e+')');
+		}
+	}
+
+	function getSongTags(song){
+//console.log('getSongTags: song', song);		
+		if(song?.l){
+			var parts = song.l.split('\t');
+			return new SongTags(parts.shift(), parts.pop(), parts.reverse().join('/'),song.p);
+		}
+		return new SongTags('unknown','unknown','unknown');
+	}
+
+	// playing variables
+	var songList = [];
+	var playList = [];
+	var preLoads = [];
+	var player = null;
+	var nothingPlaying = true;			
+	var saveCall = 0;	
+
+	var customCursor;
+	var marqueeDelay = 16;	
+	var playMode;
+	var weekAsMilliseconds = 7 * 24 * 60 * 60 * 1000;
+	var dayAsMilliseconds = 24 * 60 * 60 * 1000;
+	var scrollDelay = 1000;	
+	var scrollStart = new Date().getTime() + scrollDelay; 	
+	var saveLock = false;
+	var expireTime = null;	
+	var nearlyExpireTime = new Date(Date.now());
+	var offTime = null;	
+	var scanning;
+	var configToggle;
+	var config;
+	var statusMap = [];		
+	var playlistLength = 32;	
+
+	// index variables
+	var rootMusicDirName = "Music";
+	var rootMusicDirID = localStorage.getItem('rootMusicDirID');
+	var musicIndexFileName = "OffDrive";
+	var musicIndexFileNameSuffix = "index";
+	var musicIndexBackUpSuffix = "backup";
+	var musicIndexFileID;
+	var autoSaveCounter = 1;
+	var folders2Scan = [];
+	var callDelay = 256;
+	var nextTimeout = 0;
+	var isInitialised = false;
+	var nowPlaying;
+	
+	var loadingConst='loading';
+
+	// start (in normal mode)	
+	function initialise(){
+//console.log('initialise: isInitialised', isInitialised);
+		//nowPlaying = window.open('', 'nowPlaying', 'width=400,height=400');
+		const content = `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <title>Injected Page</title>
+    </head>
+    <body>
+      <h1 id="np">Hello from injected page</h1>
+      <script>
+        window.sayHi = function(theText) {
+			console.log('text = ' + theText);
+			console.log(document.getElementById('np'));
+          document.getElementById('np').textContent = theText;
+        }
+        sayHi('hi');
+      <\\/script>
+    </body>
+  </html>
+`;
+		
+		//nowPlaying.document.write(content);
+		//nowPlaying.document.close();
+		
+//console.log('initialise after window');
+		
+		if(isInitialised == false) {
+			isInitialised = true;
+			setTimeout(confirmMusicDir, 8192);
+			player = new Player($('#ThePlayer').get(0));
+			try {
+			var savedSongString = localStorage.getItem('savedSongInfo');
+//console.log('saved song', savedSongString);
+			if(savedSongString && savedSongString !== '' && savedSongString !== 'undefined'){
+//console.log('saved song has value');
+				var savedSong = JSON.parse(savedSongString);
+				setMarquee('Loading saved song ... ', savedSong.l);
+//console.log('attempting to load saved song', savedSong);
+				player.loadSong(savedSong, playIfNotPlaying, ()=> {
+//console.log('load saved song failed!!! clearing saved song');
+					localStorage.setItem('savedSongInfo','');
+					setMarquee('Could not load saved song.');
+console.log('Could not load saved song.');
+				});
+			}
+			}catch(ex){
+console.log('Could not load saved song exception.',ex);
+			}
+		}
+	}
+	
+
+	function confirmMusicDir(){
+//console.log('confirmMusicDir', rootMusicDirID);		
+//$('#debugInfo').text($('#debugInfo').text()+'in confirmMusicDir, rootMusicDirID = ' + rootMusicDirID + ' ... ');
+		if(!rootMusicDirID){
+//console.log('confirmMusicDir, !rootMusicDirID, picking');		
+			pickMusicDir();
+		}
+		else{
+//console.log('confirmMusicDir, rootMusicDirID, getting ' + rootMusicDirID);		
+//$('#debugInfo').text($('#debugInfo').text()+'in confirmMusicDir, about to try to get files ... ');
+			gapi.client.drive.files.get({
+				fileId: rootMusicDirID
+			}).then((res)=>{
+//console.log('confirmMusicDir - trying to find music dir', res);				
+//$('#debugInfo').text($('#debugInfo').text()+'in confirmMusicDir, res = ' + res + ' ... ');
+//$('#debugInfo').text($('#debugInfo').text()+'in confirmMusicDir, res.result = ' + res.result + ' ... ');
+				if(res.result){
+//$('#debugInfo').text($('#debugInfo').text()+'in confirmMusicDir, starting ... ');
+//console.log('confirmMusicDir - found music dir, starting', res);				
+					start();
+				}else{
+//console.log('confirmMusicDir - did not find music dir, picking', res);				
+//$('#debugInfo').text($('#debugInfo').text()+'in confirmMusicDir, no result, about to pick ... ');
+					pickMusicDir();
+				}
+			}).catch((err)=>{
+//console.log('confirmMusicDir - picking', err);				
+//$('#debugInfo').text($('#debugInfo').text()+'in confirmMusicDir, catch, about to pick ... ');
+				pickMusicDir();
+			});
+		}
+	}
+		
+	function pickMusicDir(){
+//console.log('pickMusicDir');		
+		gapi.client.drive.files.list({
+			q: 'name="'+rootMusicDirName+'" AND mimeType="application/vnd.google-apps.folder" AND trashed=false'
+		}).then((res)=>{
+//console.log('no MusicDir', res);		
+			var musicDirOptions = $('#musicDirOptions');
+			for(var dir in res.result.files){
+//console.log(dir);					
+				musicDirOptions.append('<button class="btn btn-outline-info" onclick="setMusicDir(\''+res.result.files[dir].id+'\')"><span>'+dir+'</span></button><span style="overflow:visible; word-wrap:normal;" id="'+res.result.files[dir].id+'"></span></br>');
+				appendParent(res.result.files[dir].id, res.result.files[dir].id);
+			}
+		}).catch((err)=>{
+//console.log(err);			
+			musicDirOptions.append('Cannot find any \''+rootMusicDirName+'\' folder on drive');
+		}); 			
+		$('#initialiseDiv').show();
+	}
+		
+	function appendParent(div, parent){
+		gapi.client.drive.files.get({
+			fileId: parent,
+			fields: 'name, parents'
+		}).then((res)=>{
+			if(res.result && res.result.parents){
+				var option = $('#'+div);
+//console.log('appendParent', option.text(), res.result.name, res.result.parents[0]);	
+				option.text(res.result.name + ' / ' + option.text());
+				appendParent(div, res.result.parents[0]);
+			}
+		});
+	}
+	
+	function setMusicDir(id){
+		$('#initialiseDiv').hide();
+		rootMusicDirID = id;
+		localStorage.setItem('rootMusicDirID', rootMusicDirID);
+//console.log('setMusicDir, starting');		
+		start();
+	}
+		
+	
+	async function downloadDriveAudioUrl(fileId, mimeType) {
+    if (!G_TOKEN) {
+        throw new Error('No Google access token');
+    }
+
+    const response = await fetch(
+        'https://www.googleapis.com/drive/v3/files/' +
+        encodeURIComponent(fileId) +
+        '?alt=media',
+        {
+            headers: {
+                Authorization: `Bearer ${G_TOKEN}`
+            }
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(`Drive download failed: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+
+    return URL.createObjectURL(
+        blob.type
+            ? blob
+            : new Blob([blob], { type: mimeType || 'audio/mpeg' })
+    );
+}
+
+	
+	function removePreloadedSong(songID) {
+    const item = preLoads[songID];
+
+    if (item?.url?.startsWith('blob:')) {
+        URL.revokeObjectURL(item.url);
+    }
+
+    delete preLoads[songID];
+}
+	
+	function playNextSong(){
+		player.kill();
+		for(var indexCheck in preLoads) {
+//console.log('removing excess preloads... : preLoads', preLoads);			
+//console.log('removing excess preloads... : indexCheck', indexCheck);			
+//console.log('removing excess preloads... : playList', playList);			
+//console.log('removing excess preloads... : playList.filter(s => s.i ==== indexCheck)', playList.filter(s => s.i === indexCheck).length);
+			if(playList.filter(s => s.i === indexCheck).length === 0) {
+//console.log('removing excess preloads ... deleting preLoad ', indexCheck);				
+				removePreloadedSong(indexCheck);
+			}
+		}
+
+//console.log('playNextSong: playList.length, G_TOKEN', playList.length, G_TOKEN);		
+		if(G_TOKEN != null){
+//console.log('playNextSong - no next song loaded', playList, playList.length, playList.filter(function(i){return i != null}).length);	
+			loadPreLoads(Date.now());
+			var loadedPreloads = Object.entries(preLoads).filter(function([key, value]) {
+//console.log('playNextSong - preload filter - val = ', value);				
+  				return value !== null && value !== loadingConst; 
+			});
+//console.log('playNextSong - preloaded + loadedPreloads', preLoads, loadedPreloads);			
+			var preloadedSongIds = loadedPreloads.map(([key]) => key); 
+//console.log('playNextSong - preloadedSongIds', preloadedSongIds);	
+			if(preloadedSongIds.length > 0){
+//console.log('playNextSong - got list');	
+				var rando = parseInt(Date.now()) % preloadedSongIds.length;
+//console.log('playNextSong: rando, preloadedSongIds[rando]', rando, preloadedSongIds[rando]);				
+				var song = getSongFromID(preloadedSongIds[rando]);
+//console.log('playNextSong - playing', song);	
+				player.loadSong(song);
+				localStorage.setItem('savedSongInfo', JSON.stringify(player.Song));
+			}
+			else{
+//console.log('playNextSong - makingPLaylist');	
+				if(playList.length == 0) {
+					makePlaylist();
+				}
+			}
+		}
+//console.log('playNextSong: end - playList.length', playList.length);	
+	}
+
+	function findIndex(){
+//console.log('in find index');		
+		musicIndexFileID = null;
+		gapi.client.drive.files.list({
+			q: '"'+rootMusicDirID+'" IN parents AND name="'+musicIndexFileName+'.'+musicIndexFileNameSuffix+'" AND trashed=false'
+		}).then((res)=>{
+			if(res.result.files.length == 0) {
+				attemptToRestoreFromBackup();
+			} else {
+				musicIndexFileID = res.result.files[0].id;
+//console.log('in find index: musicIndexFileID', musicIndexFileID);				
+				loadIndex();
+			}
+		}).catch((err)=>{
+			setMarquee('Cannot find '+musicIndexFileNameSuffix);
+			attemptToRestoreFromBackup();
+		});
+	}
+		
+	function start(){
+		statusMap['P']='Hidden';
+		statusMap['D']='Deleted';
+		statusMap['S']='Sleep';
+		statusMap['A']='Awesome';
+		statusMap['C']='Notable';
+		statusMap['T']='Tania';
+		statusMap['?']='Missing?';
+		statusMap['-']='No Classification';
+		statusMap['']='No Classification';
+		saveCall = 0;
+//console.log('start');		
+		$('#playDiv').show();
+		var marquee = $('#marquee').first(); 
+		setMarquee('Initialising ...');
+		rollMarquee();
+		//console.log('in start before find music dir');		
+
+		findIndex();
+		
+		customCursor = $('#cursor').first();
+		playMode = $('#playMode').children().first();
+		var rememberedPlayMode = localStorage.getItem('playMode');
+		if(!rememberedPlayMode) {
+			rememberedPlayMode = 'fa-calendar'
+			localStorage.setItem('playMode', rememberedPlayMode)
+		}
+		playMode.addClass(rememberedPlayMode);
+//console.log('playMode', playMode)					
+		scanning = $('#scanning').children().first();
+		configToggle = $('#configToggle').children().first();
+		config = $('#config');
+		$('#songDragger').bind('mousedown', setCursor);
+		$('#songDragger').bind('touchstart', setCursor);
+		setMarquee('Loading '+musicIndexFileNameSuffix+' ...');
+	}
+
+	function togglePlayback(){
+		var audio = player.audio;
+		audio.paused ? audio.play() : audio.pause()
+	}
+
+	function setCursor(e){
+		customCursor.attr('class','fas fa-music');
+		customCursor.show();
+		window.addEventListener('mousemove', function(e){			
+			customCursor.css('top', (e.pageY+1) + 'px');
+			customCursor.css('left', (e.pageX+1) + 'px');
+		});
+		window.addEventListener('touchmove', function(e){			
+			customCursor.css('top', (e.pageY+1) + 'px');
+			customCursor.css('left', (e.pageX+1) + 'px');
+		});
+		e.preventDefault();
+	}
+
+	function setMarquee(text){
+		var indexStatus = $('#index_status').first();
+
+		if(text != indexStatus.html()){
+			indexStatus.html(text);
+			indexStatus.css('marginLeft', '16px');
+		}
+		//if(new Date().getTime() > scrollStart)
+		//	marqueeDelay = 4096;
+		//else
+		//	marqueeDelay = scrollDelay;
+	}
+
+	function rollMarquee(){
+		var indexStatus = $('#index_status').first();
+
+		var leftM = parseInt(indexStatus.css('marginLeft'));
+		if(leftM < -1 * indexStatus.width())
+			leftM =  $('#time')[0].offsetLeft; 
+
+		indexStatus.css('marginLeft', (leftM-1)+'px');
+
+		setTimeout(rollMarquee, marqueeDelay);
+	}
+
+	function attemptToRestoreFromBackup(){
+		saveCall = 0;
+		dotColor='green';
+		setMarquee('Attempting to restore '+musicIndexFileNameSuffix+' from '+musicIndexBackUpSuffix);
+//console.log('in attemptToRestoreFromBackup before find backup');		
+		gapi.client.drive.files.list({
+			q: '"'+rootMusicDirID+'" IN parents AND name contains "'+musicIndexFileName+'.'+musicIndexBackUpSuffix+'" AND trashed=false',
+			fields: '*'
+		}).then((res)=>{
+			if(res.result.files.length > 0) {
+//console.log('in rfb', res.result.files[0]);
+				if(res.result.files[0].size > 8){
+					setMarquee('Restoring '+musicIndexFileNameSuffix+' from '+musicIndexBackUpSuffix);
+//console.log('in attemptToRestoreFromBackup before copy backup to index');		
+					gapi.client.drive.files.copy({
+						'fileId': res.result.files[0].id,
+						'supportsTeamDrives': true,
+						'resource': {
+							'parents': [
+								rootMusicDirID
+							],
+							'name': musicIndexFileName + '.' + musicIndexFileNameSuffix
+						}
+					}).then((res)=>{
+//console.log('in attemptToRestoreFromBackup before loadIndex');		
+						loadIndex();
+					});
+				}
+			}
+			else{
+				whenCreateIndex();
+			}
+		});
+	}
+
+	// play stuff	
+	function toggleNew(){
+		if(playMode.hasClass('fa-calendar')){
+			playMode.removeClass('fa-calendar');	
+			playMode.addClass('fa-calendar-day');
+			localStorage.setItem('playMode', 'fa-calendar-day');
+//console.log('set playmode to fa-calendar-day');			
+		}
+		else if(playMode.hasClass('fa-calendar-day')){
+			playMode.removeClass('fa-calendar-day');	
+			playMode.addClass('fa-calendar-times');
+			localStorage.setItem('playMode', 'fa-calendar-times');
+//console.log('set playmode to fa-calendar-times');			
+		}
+		else{
+			playMode.removeClass('fa-calendar-times');	
+			playMode.addClass('fa-calendar');
+			localStorage.setItem('playMode', 'fa-calendar');
+//console.log('set playmode to fa-calendar');			
+		}
+		makePlaylist();
+	}
+
+	var totalFolderCount=0;	
+
+	function toggleScan(){
+		if(scanning.hasClass('fa-low-vision')){
+			scanning.removeClass('fa-low-vision');	
+			scanning.addClass('fa-eye');
+			totalFolderCount=0;
+			scanFoldersPaged(rootMusicDirID, null);
+		}
+		else{
+			scanning.removeClass('fa-eye');	
+			scanning.addClass('fa-low-vision');
+		}
+	}
+		
+	
+	function responseToObjectUrl(res, mimeType) {
+    const body = res.body;
+
+    // gapi normally returns binary data as a binary string.
+    const bytes = new Uint8Array(body.length);
+
+    for (let i = 0; i < body.length; i++) {
+        bytes[i] = body.charCodeAt(i) & 0xff;
+    }
+
+    const blob = new Blob([bytes], {
+        type: mimeType || 'audio/mpeg'
+    });
+
+    return URL.createObjectURL(blob);
+}
+	
+	var preloadingKey=null;
+	function loadPreLoads(lKey){
+//console.log('in loadPreLoads: lKey, preloadingKey, playList.length, preLoads, Object.keys(preLoads).length', lKey, preloadingKey, playList.length, preLoads, Object.keys(preLoads).length);
+		if((preloadingKey==lKey || preloadingKey===null) && playList && playList.length && preLoads && playList.length != Object.keys(preLoads).length) {
+			preloadingKey=lKey;
+			for(var id in playList){
+//console.log('loadPreLoads: playList[id].i', playList[id].i, preLoads);
+				if(typeof preLoads[playList[id].i] === 'undefined'){
+//setMarquee('found a song to preLoad: id ' + playList[id].i);
+//console.log('found a song to preLoad: id', playList[id].i);
+					preLoads[playList[id].i]=loadingConst;
+					preloadSong(playList[id].i, loadPreLoads, lKey);
+//setMarquee('just called preloadSong');
+//console.log('just called preloadSong');
+					refreshPlaylist();
+					return;
+				}
+			}
+		}
+//console.log('CLEARING preloadingKey');
+//setMarquee('CLEARING preloadingKey');	
+		preloadingKey=null;
+		//refreshPlaylist();
+	}
+		
+	function setPreLoadTags(tags, songID) {
+		if(tags && preLoads[songID]) {
+			preLoads[songID].tags = tags;
+			updateTitle1(songID);
+		}
+	}
+		
+	function preloadSong(songID, next, key) {
+    console.log(
+        'in preloadSong songID, key',
+        songID,
+        key
+    );
+
+    const song = getSongFromID(songID);
+
+    Promise.resolve()
+        .then(() => {
+            if (!song) {
+                throw new Error(
+                    'Song not found: ' + songID
+                );
+            }
+
+            return downloadDriveAudioUrl(
+                songID,
+                song.m
+            );
+        })
+        .then((audioUrl) => {
+            console.log(
+                'in preloadSong response',
+                songID
+            );
+
+            if (song.s === '?') {
+                song.s = '-';
+            }
+
+            // Keep the existing .url property.
+            preLoads[songID] = {
+                url: audioUrl
+            };
+
+            console.log(
+                'preloadSong: preLoads, count, playList.length',
+                preLoads,
+                Object.keys(preLoads).length,
+                playList.length
+            );
+
+            refreshPlaylist();
+
+            if (
+                Object.keys(preLoads).length >=
+                playList.length
+            ) {
+                saveCall++;
+            }
+
+            // Preserve existing metadata preloading.
+            return getFileTags(
+                songID,
+                setPreLoadTags
+            );
+        })
+        .catch((err) => {
+            console.error(
+                'song load error',
+                songID,
+                err
+            );
+
+            deadSong(
+                songID,
+                err?.errors || [
+                    {
+                        message:
+                            err?.message ||
+                            String(err)
+                    }
+                ],
+                false
+            );
+        })
+        .finally(() => {
+            console.log(
+                'preloadSong finally',
+                key
+            );
+
+            if (next) {
+                next(key);
+            }
+        });
+}
+
+	
+	function clearPreloads() {
+    Object.keys(preLoads).forEach(removePreloadedSong);
+    preLoads = [];
+}
+	
+	function makePlaylist(){
+//console.log('makePlaylist: songList.length', songList.length);		
+		if(songList.length>0){
+			clearPreloads();
+//console.log('just set loadingAPreload = false, finshed loading');						
+			//loadingAPreload = false;
+			if(playMode.hasClass('fa-calendar')){
+				playList = songList
+					.filter(function(i){ return i.s != 'D' && i.s != 'P' ; })
+					.reverse()
+					.sort(function(a,b){
+//if(a.a.startsWith('2024-12'))
+//console.log('sort 1: a, b, a.a > b.a, a.a < b.a', a.a, b.a, a.a > b.a, a.a < b.a);					
+						if( a.a > b.a ) return -1;
+						if( a.a < b.a ) return 1;
+						return 0;
+					})
+					.sort(function(a,b){
+						if( a.d < b.d ) return -1;
+						if( a.d > b.d ) return 1;
+						return 0;
+					});
+			}
+			else if(playMode.hasClass('fa-calendar-day')){
+				playList = songList
+					.filter(function(i){ return i.s != 'D' && i.s != 'P' ; })
+					.reverse()
+					.sort(function(a,b){
+//if(a.a.startsWith('2024-12'))
+//console.log('sort 3: a, b, a.a > b.a, a.a < b.a', a.a, b.a, a.a > b.a, a.a < b.a);					
+						if( a.a > b.a ) return -1;
+						if( a.a < b.a ) return 1;
+						return 0;
+					});
+			}
+			else if(playMode.hasClass('fa-calendar-times')){
+//console.log('minPlayed', minPlayed);				
+				var candidates = songList.filter(function(s){ return s.s != 'D' && s.s != 'P' && s.p === minPlayed; });
+				playList = [];
+				var rando = parseInt(Date.now() % candidates.length);
+//console.log('candidates.length = ', candidates.length);				
+//console.log('candidates = ', candidates);				
+//console.log('initial rando (' + Date.now() + ') = ', rando);	
+				while(playList.length < 16 && playList.length != candidates.length ){
+//console.log('playList.length = ', playList.length);							
+					rando = rando % candidates.length;
+//console.log('rando = ', rando);				
+//console.log('making rando playlist', rando);					
+//console.log('candidates[rando] = ', candidates[rando]);							
+//console.log('playList.includes(candidates[rando]) = ', playList.includes(candidates[rando]));							
+					if(playList.includes(candidates[rando])){
+//console.log('making rando playlist **************** already exists', rando);					
+						rando++;
+					}
+					else
+					{
+//console.log('making rando playlist adding to playlist', rando, candidates[rando]);					
+						playList.push(candidates[rando]);
+					}
+					rando = Math.floor(Math.random() * rando * rando * 3.14159);
+// console.log('rando, % candidates.length', rando, rando % candidates.length);				
+				}
+			}
+//console.log('makePlaylist: playList.length', playList.length);		
+//console.log('makePlaylist: playList', playList);		
+			if(playList.length > playlistLength){
+				playList = playList.slice(0, playlistLength);
+			}
+			playList = playList.reverse();
+//console.log('makePlaylist: refreshPlaylist');		
+			loadPreLoads(Date.now());
+			refreshPlaylist();
+		}
+	}
+
+	function makeStatusPlaylist(status){
+		playList = songList.filter(function(i){ return i.s === status});
+		refreshPlaylist();
+	}
+
+	function playAlbum(){
+		clearPreloads();
+		//loadingAPreload = false;
+//console.log('filter on player', player);
+//console.log('filter on player.Tags', player.Tags);
+//console.log('filter on player.Tags.album', player.Tags.album);
+		var albumToPlay = player.Tags.album;
+//console.log('albumToPlay', albumToPlay);
+		playList = songList.filter(function(s){ return s.l.split('\t')[1] === albumToPlay && s.s !== 'D' });
+//console.log('playList', playList);
+		refreshPlaylist();
+	}
+
+	function playArtist(){
+		clearPreloads();
+		//loadingAPreload = false;
+		var artistToPlay = player.Tags.artist;
+		playList = songList.filter(function(s){ return s.l.split('\t')[2] === artistToPlay && s.s !== 'D' });
+		refreshPlaylist();
+	}
+
+	function refreshPlaylist(){
+		playListDiv = $('#playListDiv'); 
+		playListDiv.html('');
+		for(var keyIndex = playList.length - 1 ; keyIndex >= 0 ; keyIndex--){
+			 playListDiv.html(playListDiv.html() + playListLine(playList[keyIndex].i));
+		}
+	}
+
+	function getTagsFromTree(treeArray, fileID, songID, callback){
+//console.log('getTagsFromTree: rootMusicDirID', rootMusicDirID);
+		if(rootMusicDirID === undefined)
+			return;
+		if(fileID === rootMusicDirID){
+			callback({title:treeArray.shift(), artist:treeArray.pop(), album:treeArray.reverse().join('/')}, songID);
+		}
+		else{
+//console.log('in getTagsFromTree', treeArray, fileID, songID);
+			whenGetInfo(fileID).then((res)=>{
+//console.log('iterating getTagsFromTree', res);
+				treeArray.push(res.result.name);
+//console.log('iterating getTagsFromTree : res.result.parents', res.result.parents);
+				setTimeout(getTagsFromTree, callDelay, treeArray, res.result.parents[0], songID, callback);
+			});
+		}
+	}
+
+	function setPlayingTags(tags){
+		if(tags){
+			$('#playing_title').html(tags.title); 
+			$('#playing_artist').html(tags.artist); 
+			$('#playing_album').html(tags.album); 
+			$('#playing_count').html(tags.playedCount);
+			//$('title').text(tags.title+'/'+tags.artist);
+		}
+	}
+
+	function pause(state) {
+		var pauseButton = $('#pauseButton');
+		var currentStatus = state === undefined ? (pauseButton.css('border-color') === 'rgb(0, 0, 0)') : state;
+//console.log('pause: state, currentStatus', state, currentStatus);		
+		if(currentStatus) {
+			pauseButton.css({
+			  'border-color': 'yellowgreen',
+			  'border-width': '2px'
+			});
+		}else{
+			pauseButton.css({
+			  'border-color': 'black',
+			  'border-width': '0px'
+			});
+		}
+//console.log('pause: pauseButton css', pauseButton.css('border-color'));		
+		return(currentStatus);
+	}
+		
+	function isPaused() {
+		var pauseButton = $('#pauseButton');
+//console.log('isPause: pauseButton, css, state', pauseButton, pauseButton.css('border-color'), pauseButton.css('border-color') === 'rgb(0, 0, 0)');		
+		return pauseButton.css('border-color') !== 'rgb(0, 0, 0)';
+	}
+
+	function playListLine(songID){
+		var song = getSongFromID(songID);
+		var infoParts = song.l.split('\t');
+		var displayText = infoParts[0] + ' / ' + infoParts[infoParts.length-1] + ' ('+song.s+'/'+song.p+')'
+		var listHTML = '<div id="' + songID + '" title="' + displayText + '"';
+		if(preLoads[songID]) {
+			if(preLoads[songID]==loadingConst){
+				listHTML = listHTML + ' style="color:grey">';
+			} else {
+				listHTML = listHTML + ' style="color:black">';
+			}
+			listHTML = listHTML + '<button type="button" style="padding:0px; margin-top:-4px" class="btn btn-naked" onclick="removeFromPlaylist(\'' + songID + '\');"><span class="fas fa-trash">';
+		} else {
+			listHTML = listHTML + ' style="color:lightgrey"><button type="button" style="padding:0px; margin-top:-4px" class="btn btn-naked" onclick="preloadSong(\'' + songID + '\', loadPreLoads, Date.now());"><span class="fas fa-sync">';
+		}
+		listHTML = listHTML + '</span></button><span onclick="player.kill(); player.loadSong(getSongFromID(\'' + songID + '\'));">' + displayText + '</span></div>';
+		return listHTML;
+	}
+
+	function removeFromPlaylist(songId){
+		if(playList.length) {
+			var songIndex = playList.findIndex(function(s){return s.i === songId})
+			playList.splice(songIndex,1);
+			try{
+				var listItem = $('#'+songId);
+				listItem.css('background-color','');
+				listItem.children().last().css('color','lightgrey');
+			}catch(e){}
+		}
+		if(playList.length == 0) {
+			makePlaylist();
+		}
+	}
+
+	// index stuff	
+	function removeFromIndex(song){
+		var songIndex = songList.findIndex(function(s){return s.i === song.i})
+		var removedSong = songList.splice(songIndex,1)[0];
+//console.log('removeFromIndex adding 1 to ' + saveCall); 
+		saveCall++;
+	}
+
+	function substituteTags(tags, songID){
+		var song = getSongFromID(songID);
+		var currentTags = getSongTags(song);
+		if(currentTags.title === 'unknown' || currentTags.title === '')
+			currentTags.title = tags.title;
+		if(currentTags.artist === 'unknown' || currentTags.artist === '')
+			currentTags.artist = tags.artist;
+		if(currentTags.album === 'unknown' || currentTags.album === '')
+			currentTags.album = tags.album;
+		setSongLocation(currentTags, songID);
+	}
+
+	function mouseUpAdd(status){
+		if(customCursor.is(':visible')){
+			customCursor.hide();
+//console.log('mouseUpAdd: status, player.songID', status, player.songID);			
+			updateStatus(status, player.songID);
+		}
+	}
+
+	function updateStatus(status, songID){
+		if(songID && songList?.length){
+			var song = getSongFromID(songID);
+			if(song.s === '?' || song.s === '-' || song.s === '') 
+				song.s = status;
+			else
+				song.s = '-';
+		}
+	}
+
+	function loadIndex() {
+//console.log('in loadIndex');	
+		reloadFlag = false;
+		whenLoadIndex().then((res)=>{
+			if(res.body === '' || res.body === 'undefined'){
+				setMarquee(musicIndexFileNameSuffix+' not found, creating '+musicIndexFileNameSuffix+' ...');
+				doScan();
+			}
+			else{
+				songList = JSON.parse(res.body);
+				setMarquee('Loaded ' + songList.length + ' songs from '+musicIndexFileNameSuffix);
+				$('#searchButton').show();
+				if(playList.length === 0) {
+					makePlaylist();
+				}
+//console.log('index loaded');				
+				if($('#time').html() === '') {
+					setPlayingTags(player.Tags)
+//console.log('about to display time');				
+	 				displayTime();
+				}
+				$('#postIndexButtons').show();
+			}
+		}).catch((err)=>{
+			console.log('Cannot load '+musicIndexFileNameSuffix, err);
+			setMarquee('Cannot load '+musicIndexFileNameSuffix);
+			if(confirm('Could not load '+musicIndexFileNameSuffix+'. Restart application?')) {
+			   window.location.reload();
+			} else {
+				pickMusicDir();
+			}
+		});
+	}	
+
+	function scanFoldersPaged(folderID, pageToken){
+		if(scanning.hasClass('fa-eye')){
+			whenScanFolders(folderID, pageToken).then((res)=>{
+//console.log('found ' + res.result.files.length + 'files in folder');
+				if(res.result.files.length > 0){
+					totalFolderCount += res.result.files.length;
+//console.log('Adding ' + res.result.files.length + ' folders, ' + folders2Scan.length + '/' + totalFolderCount + ' ['+songList.length+']');
+					for(var index=0; index < res.result.files.length; index++){
+						var id = res.result.files[index].id;
+						if(!folders2Scan[id])
+						{
+//console.log('Added folder ' + res.result.files[index].name + ' ('+id+') for checking');
+							folders2Scan.push(id);
+							setTimeout(scanFoldersPaged, callDelay * Math.abs(folders2Scan.length-4), id, null);
+						}
+					}
+					if(res.result.nextPageToken !== undefined){
+						setTimeout(scanFoldersPaged, callDelay, folderID, res.result.nextPageToken);
+					}
+					if(folderID == rootMusicDirID && !pageToken){
+						setTimeout(scanFolderForFiles, callDelay * 8);
+					}
+				}
+			}).catch((err)=>{
+				$('#index_status').html('Retrying folder scan ' + folderID);
+//console.log('Could not scan folder ' + folderID + ', will retry');
+				setTimeout(scanFoldersPaged, callDelay * Math.abs(folders2Scan.length-4), folderID, pageToken);
+			});
+		}
+	}
+
+    var gapFillDelay = 0; 
+	function scanFolderForFiles(){
+		gapFillDelay = 1;
+		if(folders2Scan.length > 0 && scanning.hasClass('fa-eye')){
+			$('#time').html(folders2Scan.length);
+			var folderID = folders2Scan.shift();
+//console.log('Checking folder ' + folderID);			
+			try{
+				whenAddSongs(folderID).then((res)=>{
+//console.log('Checking ' + res.result.files.length + ' files, '  + folders2Scan.length + '/' + totalFolderCount + ' ['+songList.length+']');
+					for(var index=0; index < res.result.files.length; index++){
+						var songID = res.result.files[index].id;
+						var song = getSongFromID(songID);
+//console.log('Checking Song ' + res.result.files[index].name + '(' + songID + ' - ' + song?.i + ' in ' + folderID +')');
+						if(song === undefined){
+							var mimeType = res.result.files[index].fileExtension;
+//console.log('song has extension ' + mimeType);
+							if(mimeType==='flac')
+								mimeType = 'audio/flac';
+							if(mimeType==='mp3')
+								mimeType = 'audio/mpeg';			
+//console.log('song has mimetype ' + mimeType);
+							if(mimeType==='audio/mpeg' || mimeType==='audio/flac')
+							{
+//console.log('found new song with mimeType ' + mimeType + ', name ' + res.result.files[index].name); 	
+								songList.push(new Song(songID, mimeType, 0 ,'-', folderID));
+								gapFillDelay+=8;
+//console.log('attempting to fill gat at ', songList.length-1, gapFillDelay);							
+								setTimeout(fillGap, gapFillDelay * callDelay, (songList.length-1));
+console.log('SONG Added ' + res.result.files[index].name + ' (' + mimeType + ') to '+musicIndexFileNameSuffix);
+								setMarquee('Added <i>' + res.result.files[index].name + '</i> to '+musicIndexFileNameSuffix);
+								if(++autoSaveCounter % 1024 == 0){
+//console.log('scanFolderForFiles adding 1 to ' + saveCall + ', autoSaveCounter = ' + autoSaveCounter); 
+									saveCall++;
+								}
+							}
+						}
+						else {
+//console.log('song not undef', song);
+							if(song.f === undefined){
+//console.log('song f undef', song);
+								song.f = folderID;
+//console.log('song f = ', song.f);
+							}
+						}
+					}
+				}).catch((err)=>{
+					folders2Scan.push(folderID);
+//console.log('Cannot list files in folder ' + folderID + ', will retry');
+					setMarquee('Cannot list files in folder ' + folderID);
+				});
+			}
+			catch(e){
+				folders2Scan.push(folderID);
+//console.log('Cannot list files in folder ' + folderID + ', will retry');
+				setMarquee('Cannot list files in folder ' + folderID);
+			};
+			setTimeout(scanFolderForFiles, callDelay);
+		}
+		else{
+//console.log('looked in a total of ' + totalFolderCount + ' folders.');
+//console.log('in scanFolderForFiles about to add 1 to ' + saveCall + ', before fillGaps');			
+			saveCall++;
+		}
+	}
+
+	function setSongLocation(tags, songID){
+//console.log('in setSongLocation', tags, songID);
+		if(tags){
+			if(!tags.title)
+				tags.title='unknown';
+			if(!tags.artist)
+				tags.artist='unknown';
+			if(!tags.album)
+				tags.album='unknown';
+			if(tags.title === 'unknown' && tags.artist === 'unknown' && tags.album === 'unknown'){
+				setMarquee('All tags are unknown for ' + songID);
+			} else{
+				var song = getSongFromID(songID);
+				if(song){
+					song.l = tags.title.toLowerCase()+'\t'+tags.album.toLowerCase()+'\t'+tags.artist.toLowerCase();
+//console.log('in setSongLocation about to add 1 to ' + saveCall);
+//					saveCall++;
+				}
+			}
+//console.log('exiting setSongLocation', getSongFromID(songID));			
+		}
+	}
+
+	function fillGap(index){
+		var song = songList[index];
+		var delay = 0;
+		setMarquee('filling gaps for ' + index + ' (' + song?.l + ')');
+//console.log('checking gap for ' + index + ' (' + song.l + ')');
+
+		try{
+			if(song.l === undefined || song.l === '' || song.l.indexOf('unknown') == 0){
+//console.log('found gap w/out info at ' + index + ' setting info from tree ...');
+				delay = delay + 3;
+				getTagsFromTree([], song.i, song.i, setSongLocation);
+			}
+			
+			if(song.a === undefined || song.a === null){
+				delay = delay + 1;
+//console.log('found gap at ' + index + ' setting created ...');
+				whenGetInfo(song.i).then((res)=>{
+					song.a = res.result.modifiedTime;
+				});
+			}
+		}
+		catch(e){
+			setMarquee('error ' + e + ' filling gaps for ' + song.i + ' (' + index + ')');
+//console.log('error ' + e + ' filling gaps for ' + song.i + ' (' + index + ')');
+		}
+		return delay;
+	}
+		
+	function fillGaps(index){
+		if(index < songList.length){
+			var delay = fillGap(index);
+			setTimeout(fillGaps, callDelay * delay, ++index);
+		}
+		else{
+//console.log('in fillGaps about to add 1 to ' + saveCall + ' after fill gaps over');
+			saveCall++;
+		} 
+	}
+
+	function deleteFiles(fileSuffix, nextMethod){
+//console.log('in deleteFiles before get files', fileSuffix);
+		gapi.client.drive.files.list({
+			q: '"'+rootMusicDirID+'" IN parents AND name = "'+musicIndexFileName+'.'+fileSuffix+'" AND trashed=false',
+//			fields: 'id, name'
+		}).then((lres)=>{
+			if(lres.result.files.length === 0){
+//console.log('nothing to delete, calling nextmethod');				
+				nextMethod();
+			}
+			var fileCount = 0;
+			for(var fileIndex=0; fileIndex<lres.result.files.length; fileIndex++){
+//console.log('in deleteFiles', fileIndex, lres.result.files[fileIndex].id, lres.result.files[fileIndex].name);
+				gapi.client.drive.files.delete({
+					'fileId': lres.result.files[fileIndex].id
+				}).then((dres)=>{
+					setMarquee('Deleted '+fileSuffix+' file.');
+//console.log('Deleted '+fileSuffix+' file.', fileIndex, fileCount);
+					if(fileIndex == ++fileCount){
+//console.log('*** triggering next t');
+						setTimeout(nextMethod, callDelay * 4);
+					}
+				}).catch((derr)=>{
+					setMarquee('Problem deleting '+fileSuffix+' file.');
+//console.log('Problem deleting '+fileSuffix+' file.', derr);
+					if(fileIndex == ++fileCount){
+//console.log('*** triggering next e');
+						setTimeout(nextMethod, callDelay * 4);
+					}
+				});
+			}
+		}).catch((lerr)=>{
+//console.log('in deleteFiles, could not delete = ' + lerr);				
+			setMarquee('could not delete '+fileSuffix+' files.');
+			nextMethod();
+		}); 
+	}
+		
+	function copyFile(origId, destName){
+//console.log('********** in copyFile', origId, destName);		
+		gapi.client.drive.files.copy({
+			'fileId': origId,
+			'supportsAllDrives': true,
+			'name': destName
+		}).then((res)=>{
+//console.log('in copyFile, then', res);
+			setMarquee('copied to '+ destName);
+		}).catch((err)=>{
+//console.log('in copyFile, catch', err);		
+		});
+	}
+
+	function saveIndexFile(){
+console.log('in saveIndexFile');
+		deleteFiles(musicIndexBackUpSuffix, () => {saveIndexBySuffix(musicIndexBackUpSuffix, makeCopies)});
+	}
+		
+	function makeCopies(tempId){
+		try{
+console.log('in makeCopies, tempId = ' + tempId);
+			deleteFiles(musicIndexFileNameSuffix, () => copyFile(tempId, musicIndexFileName+'.'+musicIndexFileNameSuffix));
+ 
+			var now = new Date().getTime();
+			if(localStorage.getItem('lastBackup') === null) {
+				localStorage.setItem('lastBackup', 0);
+			}
+			var lastBackup = new Date(parseInt(localStorage.getItem('lastBackup'))).getTime();
+console.log('before special back up check',lastBackup, weekAsMilliseconds, (now - weekAsMilliseconds));			
+			if(lastBackup < (now - dayAsMilliseconds)){
+				localStorage.setItem('lastBackup', now);
+				var dateAsString = new Date().getFullYear()+'-'+(new Date().getMonth()+1)+'-'+new Date().getDate();
+console.log('backup up special with ' + dateAsString); 				
+				deleteFiles(dateAsString, () => copyFile(tempId, musicIndexFileName+'.'+dateAsString));
+			}
+		} catch(e){
+			localStorage.setItem('lastBackup', now);
+		}
+console.log('reset saveCall & dotColour');
+		saveCall = 0;
+		dotColor='green';
+		saveLock = false;
+		window.onbeforeunload = null;
+	}
+
+	function saveIndexBySuffix(suffix, callback){
+console.log('in saveIndexBySuffix before get access token');		
+		var accessToken = gapi.auth.getToken().access_token;
+		var indexContent = JSON.stringify(songList);
+		var metadata = {
+			'name': musicIndexFileName+'.'+suffix,
+			'mimeType': 'text/json',
+			'parents': [rootMusicDirID]
+		};
+		var form = new FormData();
+		form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
+		form.append('file', indexContent);
+		var xhr = new XMLHttpRequest();
+console.log('in saveIndexBySuffix before save index');		
+		xhr.open('post', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id');
+		xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
+		xhr.responseType = 'json';
+		xhr.onreadystatechange = () => {
+console.log('onreadystatechange xhr', xhr);			
+console.log('onreadystatechange xhr.readyState', xhr.readyState);			
+			if (xhr.readyState==4)
+        	{
+console.log('onreadystatechange xhr.response', xhr.response);			
+console.log('onreadystatechange xhr.response.id', xhr.response.id);		
+				setMarquee(suffix+' saved.');
+				if(xhr.response?.id)
+				{
+					if(callback)
+						callback(xhr.response.id);
+console.log('saveIndexBySuffix: suffix, xhr.response.id', suffix, xhr.response.id);				
+					if(suffix == 'backup')
+						musicIndexFileID = xhr.response.id;
+				}
+			}
+		};
+		xhr.send(form);		
+	}
+
+	// search stuff
+	function toggleSearch(){
+		var searchDiv = $('#searchDiv');
+		var playListDiv = $('#playListDiv');
+		if(searchDiv.is(':visible')){
+			searchDiv.hide();
+			refreshPlaylist();
+		}
+		else{
+			var counts = [...new Set(songList.map(s => s.p === '-' ? 0 : s.p))];
+			var searchPlayedCount = $('#searchPlayedCount');
+			searchPlayedCount.children().remove();
+//console.log('counts', songList.map(s => s.p === '-' ? 0 : s.p));
+			searchPlayedCount.append(new Option('All', -1));
+			for(var count in counts){
+//console.log('count in counts', count, counts);
+				searchPlayedCount.append(new Option(count, count));
+			}
+			playListDiv.html('');
+			searchDiv.show();
+			$('#songClue').focus();
+		}
+	}
+
+	function songSearch(clue){
+		var songResults = $('#songResults');
+		songResults.html('');
+		var label = $('#songLabel'); 
+		var playedCount =  parseInt($('#searchPlayedCount')[0].value);
+//console.log('playedCount, cond', playedCount, playedCount >=0 ? s.p === playedCount : true);		
+//console.log('songSearch: clue, playedCount', clue, playedCount);		
+		//if(clue.length > 2){
+			var foundSongs = [];
+			clue = clue.toLowerCase();
+			// whole phrase
+			foundSongs = songList.filter(function(s){ return s.l.indexOf(clue) >= 0 && s.s !== 'D' && (playedCount >=0 ? s.p === playedCount : true)});
+			var clues = clue.split(/\W+/g);
+			// all clues
+			if(foundSongs.length == 0){
+				for(var clueIndex = 0; clueIndex < clues.length; clueIndex++){
+					if(clueIndex === 0){
+						foundSongs = songList.filter(function(s){ return s.l.indexOf(clues[clueIndex]) >= 0 && s.s !== 'D' && (playedCount >=0 ? s.p === playedCount : true)});
+					}
+					else{
+						foundSongs = foundSongs.filter(function(s){ return s.l.indexOf(clues[clueIndex]) >= 0 && s.s !== 'D' && (playedCount >=0 ? s.p === playedCount : true)});
+					}
+				}
+			}
+			// any clues
+			if(foundSongs.length == 0){
+				for(var clueIndex = 0; clueIndex < clues.length; clueIndex++){
+					foundSongs = foundSongs.concat(songList.filter(function(s){ return s.l.indexOf(clues[clueIndex]) >= 0 && s.s !== 'D' && (playedCount >=0 ? s.p === playedCount : true)}));
+				}
+			}
+			if(foundSongs.length > 0){
+				label.html('Found songs : ' + foundSongs.length + ' of ' + (songList.length - 1));
+				songResults.html('<div><button type="button" class="btn btn-naked" style="padding:0px; margin-top:-4px" onclick="addAllToPlayList()"><span class="fas fa-plus"></span></button><span class="searchResult">Add All</span></div>');
+				if(foundSongs.length > clue.length * 8){
+					foundSongs = foundSongs.splice(0, clue.length * 8);
+				}
+				for(var index=0; index < foundSongs.length; index++){
+					songResults.html(songResults.html()+searchResultLine(foundSongs[index].i, foundSongs[index].l));
+				}
+			}
+		//}
+	}
+
+	function getSongFromID(songID){
+		return songList.filter(function(s){return s.i === songID})[0];
+	}
+
+	function addToPlayListByID(songID){
+		var song = getSongFromID(songID);
+		playList.push(song);
+	}
+
+	function addAllToPlayList(){
+		$('#songResults .searchResult').each(function(i, s){
+			var songid = $(s).data('songid');
+			if(songid){
+				addToPlayListByID(songid);
+			}
+		});
+	}
+
+	function searchResultLine(songID, description){
+		var infoParts = description.split('\t');
+		return '<div><button type="button" style="padding:0px; margin-top:-4px" class="btn btn-naked" onclick="addToPlayListByID(\''+songID+'\');$(this).siblings().last().css(\'color\',\'lightgrey\')"><span class="fas fa-plus"></span></button><span class="searchResult" data-songid="'+songID+'">' + infoParts[0] + ' / ' + infoParts[infoParts.length-1] + '</span></div>';
+	}
+
+	// edit stuff
+	function editSong(){
+		if(player.Song) {
+			player.Song.l =  $('#playing_title').text().toLowerCase()+'\t'+$('#playing_album').text().toLowerCase()+'\t'+$('#playing_artist').text().toLowerCase();
+//console.log('set song tag to ' + players[currentPlayerIndex].Song.l);			
+		}
+	}
+		
+	function updateAlbum(folderId, name){
+		var albumSongs = songList.filter((s) => s.f == folderId)
+		setMarquee('Updating album name for '+albumSongs.length+' songs in folder');
+//console.log('folderId, name, albumSongs', folderId, name, albumSongs);
+		for(var songIndex in albumSongs){
+//console.log('albumSongs[songIndex]', albumSongs[songIndex]);
+			var tags = getSongTags(albumSongs[songIndex])
+//console.log('currentTags', tags);
+			tags.album = name
+//console.log('setting song', albumSongs[songIndex].i, tags);
+			setSongLocation(tags, albumSongs[songIndex].i);  
+		}
+	}
+		
+	function editAlbum(){
+		if(player.Song) {
+			if(confirm('Change the album for all songs in this fodler?')) {
+				setTimeout(updateAlbum(player.Song.f, $('#playing_album').text()), callDelay);
+			}
+		}
+		editSong();	
+	}
+
+	// timer stuff
+	function setOffTime(specificTime){
+		offTime = specificTime;
+		var offTimeAsString = offTime.toLocaleTimeString();
+		$('#delayPauseButton').prop('title', offTimeAsString);
+		setMarquee('Turning off after ... ('+offTimeAsString+')');
+	}
+	function increaseOffTime(){
+		if(offTime === null){
+			offTime = new Date(Date.now());
+		}
+		var newTime = new Date(offTime.getTime() + 15 * 60000);
+		if(newTime >= expireTime){
+			newTime = new Date(Date.now() + 15 * 60000)
+		}
+		setOffTime(newTime);
+	}
+		
+	function getMemoryInfo(){
+		var memoryInfo = window.performance.memory;	
+		var info = 'jsHeapSizeLimit: ' + memoryInfo.jsHeapSizeLimit + '<br />totalJSHeapSize: ' + memoryInfo.totalJSHeapSize + '<br />usedJSHeapSize: ' + memoryInfo.usedJSHeapSize;
+//$('#index_status').html(info);
+		return info;
+	}
+		
+	function showSavingDots(){
+		var savingDiv = $('#saving');
+		var dots='';
+		for(var dotCount=0; dotCount < saveCall % 8; dotCount++){
+			dots += '<span onclick="saveCall=0" class="dot '+dotColor+'"></span>';
+		}
+	
+		savingDiv.html(dots);
+	}
+
+	var currentNowSongId;			
+	var dotColor='green';
+	var minPlayed = 0;
+	function displayTime(){
+//console.log('displayTime');		
+		try {
+//console.log('before bleep');		
+//console.log(nowPlaying);			
+//nowPlaying.sayHi("bleep");
+//console.log('after bleep');		
+
+			if(songList && songList.length)
+				minPlayed = Math.min(...songList.filter(s => s.s !== 'D' && s.s !== 'P').map(s => s.p));
+//console.log('display time: minPlayed', minPlayed);
+			var totalSongs = songList.filter(s => s.s !== 'D' && s.s !== 'P').length
+			var totalMinPlayed = songList.filter(s =>  s.s !== 'D' && s.s !== 'P' && s.p === minPlayed).length
+//console.log('Total songs: ' + totalSongs + ' / Songs played ' + minPlayed + ' times: ' + totalMinPlayed);
+			setMarquee('Total songs: ' + totalSongs + ' / Songs played ' + minPlayed + ' times: ' + totalMinPlayed);
+			
+			var now = new Date();
+			$('#time').html(now.toLocaleTimeString('en-AU', { hour12: false }).substring(0,5));
+
+//console.log('in display time, networkLog.length='+networkLog.length);
+			if(networkLog.length > 0) {
+				networkLog.shift();
+//console.log('in display time, shifted networkLog.length='+networkLog.length);
+				updateNetworkDisplay();
+			}
+			
+			if(offTime !== null && offTime < now ){
+				pause();
+				offTime = null;
+				$('#delayPauseButton').prop('title', 'not set');
+				requestAccess();
+			}
+			
+			//setPlayingTags(player.Tags);
+			var tags = player.Tags;
+			var title = tags.title+'/'+tags.artist;
+			if(title !== $('title').text()){ 
+				$('title').text(title);
+			}
+			
+			if( new Date(Date.now()) > nearlyExpireTime){
+				$('#delayPauseButton').css('background-color', 'pink');
+			}
+			else{
+				$('#delayPauseButton').css('background-color', '');
+			}
+			
+//console.log('player.isPlaying', player.isPlaying);			   
+			if(!player.isPlaying)
+			{
+//console.log('Pausing!!!');			   
+				pause(false);
+			}
+		
+console.log('saveCall', saveCall, 'dotColor', dotColor);			   
+			if(saveCall > 0){
+				if (songList.length > 0){
+					saveCall ++;
+					if(saveCall >= 4){
+console.log('saveCall over 4 !!!', saveCall);			   
+console.log('saveLock = ' + saveLock + ', length = ' + songList.length); 			
+						if(saveLock === false){
+							saveLock = true;
+							window.onbeforeunload = function(){alert('Can not close window whilst saving');return false;};
+console.log('isDirty, saving index !!!'); 			
+							saveIndexFile();
+						}
+console.log('b saveCall', saveCall, 'dotColor', dotColor);			   
+						if(dotColor !== 'red')
+							dotColor='blue';
+					}
+					if(saveCall > 8){
+console.log('r saveCall', saveCall, 'dotColor', dotColor);			   
+						dotColor='red';
+					}
+					if(saveCall > 16){
+console.log('r saveCall', saveCall, 'dotColor', dotColor);			   
+						dotColor='grey';
+						saveCall=0;
+						window.onbeforeunload = null;
+					}
+				}
+				else{
+					saveCall=0;
+console.log('g saveCall', saveCall, 'dotColor', dotColor);			   
+					dotColor='green';
+				}
+			}
+			else {
+				if(reloadFlag) {
+console.log('reloading index ...');					
+					loadIndex();
+console.log('reloaded index.');					
+				}
+			}
+			showSavingDots();
+		}
+		catch(e){
+			setMarquee(e);
+		}
+		finally{
+			setTimeout(displayTime, 8192);
+		}
+	}
+
+	// config stuff			   
+
+	function toggleConfig(){
+		if(configToggle.hasClass('fa-arrow-right')){
+			configToggle.removeClass('fa-arrow-right');	
+			configToggle.addClass('fa-arrow-left');
+			config.show();
+		}
+		else{
+			configToggle.removeClass('fa-arrow-left');	
+			configToggle.addClass('fa-arrow-right');
+			config.hide();
+			$('#categorisedSongs').html('');
+			$('#checkFilesExist').hide();
+			$('#songlistStats').html('');
+			$('#songlistStats').hide();
+		}
+	}
+
+	function createSonglistStats(){
+		var statusDiv = $('#songlistStats');
+		var played = [];
+		var category = [];
+		for(var index=0; index<songList.length; index++){
+			var thisSong=songList[index];
+			if(!played[thisSong.p]){
+				played[thisSong.p] = 1;
+			}
+			else{
+				played[thisSong.p]++;
+			}
+			if(!category[thisSong.s]){
+				category[thisSong.s] = 1;
+			}
+			else{
+				category[thisSong.s]++;
+			}
+		}
+		statusDiv.append('<h1>Categories</h1><div id="category_info" style="width:100%"></div>');
+		var catStats = $('#category_info');
+		delete category['-'];
+		delete category[''];
+		var catFactor = 100.0/Math.max.apply(Math, Object.values(category));	
+		for(var index in category){
+			catStats.append('<div style="white-space: nowrap; border:1px solid; width:'+parseInt(category[index]*catFactor)+'%;">'+statusMap[index]+' - '+category[index]+'</div>');		   
+		}				   
+
+		statusDiv.append('<h1>Played</h1><div id="played_status" style="width:100%"></div>');
+		var playStats = $('#played_status');				   
+		delete played[0];
+		var playFactor = 100.0/Math.max.apply(Math, Object.values(played));				   
+		for(var index in played){
+			playStats.append('<div style="white-space: nowrap; border:1px solid; width:'+parseInt(played[index]*playFactor)+'%;">'+index+' - '+played[index]+'</div>');		   
+		}			
+		statusDiv.show();		   
+	}
+
+	var deletedSongs;
+
+	function createCategorisedSongList(){
+		var categorisedList = $('#categorisedSongs');
+		for(var index=0; index<songList.length; index++){
+			var thisSong=songList[index];
+			if(thisSong.s !== '' && thisSong.s !== '-'){
+				var cat = $('#cat_'+thisSong.s);
+				if(cat.length===0){
+					categorisedList.append('<h1>'+statusMap[thisSong.s]+'</h1><div id="cat_'+thisSong.s+'"></div>');
+					cat = $('#cat_'+thisSong.s);
+				}
+				cat.append('<span id="cs_'+thisSong.i+'">'+
+				   '<button type="button" style="padding:0px" class="btn btn-naked" onclick="updateStatus(\'\', \''+thisSong.i+'\');$(this).parent().hide()"><span class="fas fa-trash"></span></button>'+
+				   '<button type="button" style="padding:0px" class="btn btn-naked" onclick="playImmediately(\''+thisSong.i+'\')"><span class="fas fa-play"></span></button>'+
+				   thisSong.l+'<br /></span>');
+			}
+		}
+		deletedSongs = $('#cat_D').children();
+		categorisedList.show();
+		$('#checkFilesExist').show();
+	}
+
+	function checkFilesExist(index){
+		var jqSong = $(deletedSongs[index]); 		   
+		var songID = jqSong.attr('id').replace('cs_',''); 
+		if(songID){		   
+			whenGetInfo(songID).then((res)=>{
+				jqSong.css('color','red');	   
+			}).catch((err)=>{
+				if(err.status == '404'){				   
+					var songIndex = songList.findIndex(function(s){return s.i === songID});
+					jqSong.hide();
+					songList.splice(songIndex,1);
+				}
+			});
+			setTimeout(checkFilesExist, callDelay, index+1);
+		}
+	}		
+
+	function playImmediately(songID){
+//console.log('playImmediately: songID', songID);			
+		playSongImmediately(getSongFromID(songID));
+	}
+
+function getFileTags(songID, callback) {
+    const preload = preLoads[songID];
+
+    if (!preload || preload === loadingConst || !preload.url) {
+        return Promise.resolve();
+    }
+
+    return fetch(preload.url)
+        .then(res => res.arrayBuffer())
+        .then(blob => {
+            musicmetadata(blob, function(err, tags) {
+                if (err || !tags) {
+                    throw err || new Error('Could not read metadata');
+                }
+
+                callback(
+                    new SongTags(
+                        tags.title,
+                        tags.artist?.[0],
+                        tags.album
+                    ),
+                    songID
+                );
+            });
+        })
+        .catch(err => {
+            console.warn('Could not read tags', songID, err);
+        });
+}
+
+		
+	function updateTitle1(songID){
+//console.log('in updateTitle1', player.Tags.title, player.treeTags.title, player.fileTags.title, player.songID, songID); 	
+		getTagsFromTree([], songID, songID, updateTitle2);
+	}
+		
+	function updateTitle2(treeTags, songID) {
+		if(preLoads[songID]) {
+    		var fileTags = preLoads[songID].tags;
+    		var currentTags = getSongTags(getSongFromID(songID));
+//console.log('updateTitle2: currentTags, fileTags, treeTags', currentTags, fileTags, treeTags, currentTags.title.toLowerCase() === treeTags.title.toLowerCase());		
+			if(fileTags.title && fileTags.title !== '' && (currentTags.title.toLowerCase() === treeTags.title.toLowerCase() || currentTags.title === '' || currentTags.title === 'unknown')) {
+//console.log('updateTitle2:setting title from ID3', fileTags.title, songID);
+				currentTags.title = fileTags.title;
+				setSongLocation(currentTags, songID);
+				refreshPlaylist();
+			}
+		}
+	}
+
+	function updateTitle(player, songID){
+//console.log('in updateTitle', player.Tags.title, player.treeTags.title, player.fileTags.title, player.songID, songID); 		
+		if(player.treeTags.title && player.Tags.title === player.treeTags.title.toLowerCase() && player.fileTags.title && player.songID === songID){
+//console.log('setting title from ID3', player.fileTags.title, player.songID);
+			var newTags = player.Tags;
+			newTags.title = player.fileTags.title;
+			setSongLocation(newTags, player.songID);
+//console.log('after, player', this);
+		}
+	}
+
+	function setTreeTags(tags, songID){
+		player.treeTags = new SongTags(tags.title, tags.artist, tags.album);
+		updateTitle(player, songID);
+//console.log('tree tags', players[playerIndex]);				
+	}
+
+	function showFileTag(button, forField){
+		var theButton = $(button);
+		switch(forField){
+			case 'playing_title':
+				theButton.attr('title', player.fileTags.title);
+				break;
+			case 'playing_artist':
+				theButton.attr('title', player.fileTags.artist);
+				break;
+			case 'playing_album':
+				theButton.attr('title', player.fileTags.album);
+				break;
+		}
+	}
+
+	function showTreeTag(button, forField){
+		var theButton = $(button);
+		switch(forField){
+			case 'playing_title':
+				theButton.attr('title', player.treeTags.title);
+				break;
+			case 'playing_artist':
+				theButton.attr('title', player.treeTags.artist);
+				break;
+			case 'playing_album':
+				theButton.attr('title', player.treeTags.album);
+				break;
+		}	
+	}
+
+	function useFileTag(forField){
+		var newTags = player.Tags;
+		switch(forField){
+			case 'playing_title':
+				newTags.title = player.fileTags.title;
+				$('#'+forField).text(player.fileTags.title);
+				break;
+			case 'playing_artist':
+				newTags.artist = player.fileTags.artist;
+				$('#'+forField).text(player.fileTags.artist);
+				break;
+			case 'playing_album':
+				newTags.album = player.fileTags.album;
+				$('#'+forField).text(player.fileTags.album);
+				break;
+		}	
+//console.log('setting title from file', newTags);
+		setSongLocation(newTags, player.songID);
+	}
+
+	function useTreeTag(forField){
+		var newTags = player.Tags;
+		switch(forField){
+			case 'playing_title':
+				newTags.title = player.treeTags.title;
+				$('#'+forField).text(player.treeTags.title);
+				break;
+			case 'playing_artist':
+				newTags.artist = player.treeTags.artist;
+				$('#'+forField).text(player.treeTags.artist);
+				break;
+			case 'playing_album':
+				newTags.album = player.treeTags.album;
+				$('#'+forField).text(player.treeTags.album);
+				break;
+		}	
+//console.log('setting title from tree', newTags);
+		setSongLocation(newTags, player.songID);
+	}
+
+	// Promises
+
+	function whenLoadIndex(){
+//console.log('in whenLoadIndex: musicIndexFileID', musicIndexFileID);		
+//console.log('in whenLoadIndex before get index');
+		return gapi.client.drive.files.get({
+			fileId: musicIndexFileID,
+			alt: 'media'
+		})
+	}
+
+	function whenCreateIndex(){
+		var fileMetadata = {
+			name : musicIndexFileName+'.'+musicIndexFileNameSuffix,
+			mimeType : 'application/json',
+			parents: [rootMusicDirID]
+		};
+
+//console.log('in whenCreateIndex before create index');
+		return gapi.client.drive.files.create({
+			resource: fileMetadata,
+			fields: 'id, name'
+		}).then((res)=>{
+			doScan();
+		}).catch((err)=>{
+		});
+	}
+		
+	function doScan(){
+		toggleConfig();
+		toggleScan();
+	}
+
+	function whenGetInfo(fileID){
+//console.log('in whenGetInfo before get info for ' + fileID);
+		return gapi.client.drive.files.get({
+			fileId: fileID,
+			fields: 'id, name, parents, trashed, modifiedTime'
+		});
+	}
+
+	function whenAddSongs(folderID){
+		return gapi.client.drive.files.list({
+			fields: 'files/id, files/mimeType, files/name, files/fileExtension',
+			pageSize: 256,
+			q: '"'+folderID+'" IN parents AND trashed=false'
+		}); 
+	}
+
+	function whenScanFolders(folderID, pageToken){
+		return gapi.client.drive.files.list({
+			pageSize: 256,
+			pageToken: pageToken,
+			q: '"'+folderID+'" IN parents AND mimeType="application/vnd.google-apps.folder" AND trashed=false'
+		}); 
+	}
+
+	var ctrl = false;
+	var shift = false;
+	function keydown(e){
+		var keyCode = ('which' in event) ? event.which : event.keyCode;
+//$('#debugInfo').html($('#debugInfo').html() + '|' + keyCode);
+//setMarquee(keyCode);
+		if(ctrl && shift) {
+			if(keyCode === 50) {
+				requestAccess();
+			}
+			else {
+				ctrl = false;
+				shift = false;
+			}
+		}
+		if(keyCode === 16)
+			ctrl = true;
+		if(keyCode === 17)
+			shift = true;
+		if(keyCode === 176)
+			if($('#playDiv').is(':visible'))
+				playNextSong();
+			else
+				requestAccess();
+		if(keyCode === 177)
+			pause();
+//		console.log(keyCode);
+	}
+
+	function tagEditKeyDown(){
+		var keyCode = ('which' in event) ? event.which : event.keyCode;
+		if(keyCode===27){
+			$(event.srcElement).blur();
+		}
+	}
+		
+	function toggleRowOptions(theRow, visible){
+		if(visible){
+			$(theRow).removeClass().addClass('rowWithOptions');
+			$(theRow).parent().children().first().removeClass().addClass('rowWithOptions')
+		} else {
+			$(theRow).parent().children().first().removeClass().addClass('rowWithoutOptions')
+			$(theRow).removeClass().addClass('rowWithoutOptions');
+		}
+	}
+		
+</script>
+<script>
+        // Network monitoring system
+        const networkLog = [];
+        let requestCounter = 0;
+
+        // Intercept XMLHttpRequest (used by gapi)
+        const originalXHROpen = XMLHttpRequest.prototype.open;
+        const originalXHRSend = XMLHttpRequest.prototype.send;
+        const originalXHRSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+
+        XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
+            this._gapiMonitor = {
+                id: ++requestCounter,
+                method: method,
+                url: url,
+                startTime: Date.now(),
+                headers: {}
+            };
+            return originalXHROpen.apply(this, arguments);
+        };
+
+        XMLHttpRequest.prototype.setRequestHeader = function(header, value) {
+            if (this._gapiMonitor) {
+                this._gapiMonitor.headers[header] = value;
+            }
+            return originalXHRSetRequestHeader.apply(this, arguments);
+        };
+
+        XMLHttpRequest.prototype.send = function(data) {
+            const monitor = this._gapiMonitor;
+            
+            if (monitor) {
+                // Add to log immediately as pending
+                const entry = {
+                    id: monitor.id,
+                    method: monitor.method,
+                    url: monitor.url,
+                    status: 'Pending',
+                    startTime: monitor.startTime,
+                    timestamp: new Date().toISOString(),
+                    type: 'xhr',
+                    pending: true
+                };
+                
+                networkLog.push(entry);
+                updateNetworkDisplay();
+
+                // Track progress
+                this.upload.addEventListener('progress', (e) => {
+//console.log('upload progress event. e=',e);
+                    if (e.lengthComputable) {
+                        entry.uploadProgress = (e.loaded / e.total) * 100;
+                    } else {
+                        entry.downloadProgress = (e.loaded / 16384) * 100;
+                        entry.loaded = e.loaded;
+                        entry.total = 16384;
+					}
+                    updateNetworkDisplay();
+                });
+
+                this.addEventListener('progress', (e) => {
+//console.log('progress event. e=',e);
+                    if (e.lengthComputable) {
+                        entry.downloadProgress = (e.loaded / e.total) * 100;
+                        entry.loaded = e.loaded;
+                        entry.total = e.total;
+                    } else {
+                        entry.downloadProgress = (e.loaded / 16384) * 100;
+                        entry.loaded = e.loaded;
+                        entry.total = 16384;
+					}
+                    updateNetworkDisplay();
+                });
+
+                // Track completion
+                this.addEventListener('loadend', function() {
+//console.log('loadend. this=', this);
+                    entry.status = this.status;
+                    entry.duration = Date.now() - monitor.startTime;
+                    entry.pending = false;
+                    entry.responseSize = this.response ? 
+                        (typeof this.response === 'string' ? 
+                            this.response.length : 
+                            this.response.byteLength || this.response.size || 0) : 0;
+                    
+                    // Try to get content length from headers
+                    const contentLength = this.getResponseHeader('content-length');
+                    if (contentLength) {
+                        entry.responseSize = parseInt(contentLength);
+                    } else {
+                        entry.responseSize = 16384;
+					}
+                    
+                    updateNetworkDisplay();
+                });
+
+                this.addEventListener('error', function() {
+                    entry.status = 'Error';
+                    entry.duration = Date.now() - monitor.startTime;
+                    entry.pending = false;
+                    updateNetworkDisplay();
+                });
+            }
+
+            return originalXHRSend.apply(this, arguments);
+        };
+
+        // Intercept fetch (backup method)
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+//console.log('in new fetch, args=', args);		
+            const startTime = Date.now();
+            const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+            const options = typeof args[0] === 'string' ? args[1] : args[0];
+//console.log('in new fetch, options=', options);		
+            const method = options?.method || 'GET';
+            
+            const entry = {
+                id: ++requestCounter,
+                method: method,
+                url: url,
+                status: 'Pending',
+                startTime: startTime,
+                timestamp: new Date().toISOString(),
+                type: 'fetch',
+                pending: true
+            };
+            
+            networkLog.push(entry);
+//console.log('in new fetch, added entry', entry);			
+            updateNetworkDisplay();
+            
+            return originalFetch.apply(this, args)
+                .then(async response => {
+//console.log('in original fetch, entry', entry, networkLog, response);
+                    entry.status = response.status;
+                    entry.duration = Date.now() - startTime;
+                    entry.pending = false;
+                    
+                    const contentLength = response.headers.get('content-length');
+                    if (contentLength) {
+                        entry.responseSize = parseInt(contentLength);
+                    } else {
+                        entry.responseSize = entry.url.length;
+					}
+                    
+                    updateNetworkDisplay();
+                    return response;
+                })
+                .catch(error => {
+//console.log('in original fetch catch, error', error);
+                    entry.status = 'Error';
+                    entry.duration = Date.now() - startTime;
+                    entry.pending = false;
+                    entry.error = error.message;
+                    updateNetworkDisplay();
+                    throw error;
+                });
+        };
+
+        function formatBytes(bytes) {
+            if (!bytes || bytes === 0) return '-';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function formatUrl(url) {
+            try {
+                const urlObj = new URL(url);
+                const path = urlObj.pathname + urlObj.search;
+                return path.length > 32 ? path.substring(0,32) + '...' : path;
+            } catch {
+                return url.length > 32 ? url.substring(0,32) + '...' : url;
+            }
+        }
+
+        function getStatusClass(status) {
+            if (status === 'Pending') return 'pending';
+            if (status === 'Error' || status >= 400) return 'error';
+            return 'success';
+        }
+
+        function updateNetworkDisplay() {
+            const logEl = document.getElementById('network-log');
+             
+            logEl.innerHTML = networkLog.map(entry => {
+//console.log('in network update, entry', entry);	
+                const statusText = entry.pending ? 'Pending' : entry.status;
+                const progress = entry.downloadProgress || entry.uploadProgress || 0;
+//console.log('progress='+progress);                
+                var progressR = (255 - (parseInt(progress)*2)).toString(16);
+				progressR = progressR.length === 1 ? '0' + progressR : progressR;
+                var progressG = (parseInt(progress)*2).toString(16);
+				progressG = progressG.length === 1 ? '0' + progressG : progressG;
+//console.log('statusText', statusText);				
+				if(statusText === 200){
+//console.log('200 recognised');					
+					progressR='00';
+					progressG='FF';
+				}
+//console.log('progressR='+progressR+', progressG='+progressG);                
+                return `
+                    <tr style="background-color: #${progressR}${progressG}00;">
+                        <td style="width: 1%; overflow: hidden;">${formatUrl(entry.url)}</td>
+                        <td style="width: auto">${entry.method}</td>
+                        <td style="width: auto">${statusText}</td>
+                        <td style="width: auto">${entry.duration ? entry.duration + 'ms' : '-'}</td>
+                        <td style="width: auto">${formatBytes(entry.responseSize || entry.total)}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // Auto-scroll to bottom
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+    </script>
+  </head>
+	<body onload="handleClientLoad();" onkeydown="keydown()" style="background-color:#ffffff;">
+		<div id="debugInfo" stlye="min-width:350px; max-width:350px; overflow-wr:anywhere" onclick="$(this).hide()">
+			<img src="/cover.jpg" />
+		</div>
+		<div style="min-width:350px; max-width:350px; white-space:nowrap; overflow-x:hidden; float:left; height:100%" onmouseup="$('#cursor').first().hide()" ontouchend="$('#cursor').first().hide()">
+		<span id="cursor" style="display:none;position:absolute;"></span>
+		<div id="initialiseDiv" style="padding:8px; display:none;">
+			Which of these folders is your root 'Music' folder?
+			<div id="musicDirOptions">
+			</div>
+		</div>
+		<div id="playDiv" style="padding:8px; display:none;">
+			<div id="playButtons" style="text-align: center;">
+				<button type="button" class="btn btn-outline-info" id="delayPauseButton" onclick="increaseOffTime()">
+					<span class="fas fa-clock"></span>
+				</button>
+				<button id="pauseButton" type="button" class="btn btn-naked" onclick="pause();" style="border-width:0px; border-color:black; min-height:42px;max-height:42px;min-width:42px;max-width:42px;">
+					<span class="fas fa-pause"></span>
+				</button>
+				<button type="button" class="btn btn-primary" onclick="playNextSong()">
+					<span class="fas fa-step-forward"></span>
+				</button>
+				<button type="button" class="btn btn-secondary" onclick="updateStatus('P', player.songID)">
+					<span class="fas fa-archive"></span>
+				</button>
+				<button type="button" class="btn btn-danger" onclick="updateStatus('D', player.songID);playNextSong();">
+					<span class="fas fa-eject"></span>
+				</button> 
+				<button id="searchButton" type="button" class="btn btn-outline-info" onclick="toggleSearch()">
+					<span class="fas fa-search"></span>
+				</button>
+			</div>
+			<div id="playerDiv" style="text-align: center;">
+				<audio controls="true" style="padding: 8px;" volume="0.32" id="ThePlayer"></audio>
+			</div>
+			<div id="forcePlay" style="width:100%; padding:32px; text-align:center; display:none;" onclick="forcePlay()">
+				<button type="button" class="btn btn-primary">
+					<span class="fas fa-play"></span>
+				</button>
+			</div>
+			<div id="playingInfo" style="background-color:#F1F1F1; margin:4px;">
+				<table style="width:100%; display:table; table-layout: fixed;">
+					<tr class="rowWithoutOptions"><th></th><th></th><th></th></tr>
+					<tr class="rowWithoutOptions" onmouseover="toggleRowOptions(this, true)" onmouseout="toggleRowOptions(this, false)">
+						<td style="text-align:left; white-space:nowrap; vertical-align:top; padding:0px; margin:0px;">
+							<button id="songDragger" type="button" class="btn btn-naked" style="margin:2px 0px 0px 2px; padding:0px">
+								<span class="fas fa-bars"></span>
+							</button>
+						</td>
+						<td id="playing_title" align="center" contenteditable="true" onBlur="editSong()" onKeyDown="tagEditKeyDown()" style="text-overflow:clip; overflow:hidden; white-space:nowrap;"></td>
+						<td style="text-align:right; white-space:nowrap; vertical-align:top; padding:0px; margin:0px;">
+							<button type="button" class="btn btn-naked" style="margin:-4px 0px 0px 2px; padding:0px" onmouseover="showFileTag(this, 'playing_title')"  onclick="useFileTag('playing_title')">
+								<span class="fas fa-file-code"></span>
+							</button>
+							<button type="button" class="btn btn-naked" style="margin:-4px 0px 0px -6px; padding:0px" onmouseover="showTreeTag(this, 'playing_title')" onclick="useTreeTag('playing_title')">
+								<span class="fas fa-tree"></span>
+							</button>
+						</td>
+					</tr>
+					<tr class="rowWithoutOptions" onmouseover="toggleRowOptions(this, true)" onmouseout="toggleRowOptions(this, false)">
+						<td style="text-align:left; white-space:nowrap; vertical-align:top; padding:0px; margin:0px;">
+							<button type="button" class="btn btn-naked" style="margin:2px 0px 0px 2px; padding:0px" onclick="playArtist()">
+								<span class="fas fa-portrait" title="play all songs from this artist"></span>
+							</button>
+						</td>
+						<td id="playing_artist" align="center" contenteditable="true" onBlur="editSong()" onKeyDown="tagEditKeyDown()" style="text-overflow:clip; overflow:hidden; white-space:nowrap;"></td>
+						<td style="text-align:right; white-space:nowrap; vertical-align:top; padding:0px; margin:0px;">
+							<button type="button" class="btn btn-naked" style="margin:-4px 0px 0px 2px; padding:0px" onmouseover="showFileTag(this, 'playing_artist')" onclick="useFileTag('playing_artist')">
+								<span class="fas fa-file-code"></span>
+							</button>
+							<button type="button" class="btn btn-naked" style="margin:-4px 0px 0px -6px; padding:0px" onmouseover="showTreeTag(this, 'playing_artist')" onclick="useTreeTag('playing_artist')">
+								<span class="fas fa-tree"></span>
+							</button>
+						</td>
+					</tr>
+					<tr class="rowWithoutOptions" onmouseover="toggleRowOptions(this, true)" onmouseout="toggleRowOptions(this, false)">
+						<td style="text-align:left; white-space:nowrap; vertical-align:top; padding:0px; margin:0px;">
+							<button type="button" class="btn btn-naked" style="margin:2px 0px 0px 2px; padding:0px" onclick="playAlbum()">
+								<span class="fas fa-compact-disc" title="play this album"></span>
+							</button>
+						</td>
+						<td id="playing_album" align="center" contenteditable="true" onBlur="editAlbum()" onKeyDown="tagEditKeyDown()" style="text-overflow:clip; overflow:hidden; white-space:nowrap;"></td>
+						<td style="text-align:right; white-space:nowrap; vertical-align:top; padding:0px; margin:0px;">
+							<button type="button" class="btn btn-naked" style="margin:-4px 0px 0px 2px; padding:0px" onmouseover="showFileTag(this, 'playing_album')"  onclick="useFileTag('playing_album')">
+								<span class="fas fa-file-code"></span>
+							</button>
+							<button type="button" class="btn btn-naked" style="margin:-4px 0px 0px -6px; padding:0px" onmouseover="showTreeTag(this, 'playing_album')" onclick="useTreeTag('playing_album')">
+								<span class="fas fa-tree"></span>
+							</button>
+						</td>
+					</tr>
+				</table>
+			</div>
+			<div id="statusButtons" style="text-align: center; margin:4px">
+				<button type="button" class="btn btn-success" onclick="makeStatusPlaylist('A')" onmouseup="mouseUpAdd('A')" ontouchend="mouseUpAdd('A')">
+					<span class="fas fa-smile"></span>
+				</button>
+				<button type="button" class="btn btn-warning" onclick="makeStatusPlaylist('S')" onmouseup="mouseUpAdd('S')" ontouchend="mouseUpAdd('S')">
+					<span class="fas fa-cloud"></span>
+				</button>
+				<button type="button" class="btn btn-warning" onclick="makeStatusPlaylist('C')" onmouseup="mouseUpAdd('C')" ontouchend="mouseUpAdd('C')">
+					<span class="fas fa-medal"></span>
+				</button>
+				<button type="button" class="btn btn-warning" onclick="makeStatusPlaylist('T')" onmouseup="mouseUpAdd('T')" ontouchend="mouseUpAdd('T')">
+					<span class="fas fa-rocket"></span>
+				</button>
+				<button type="button" class="btn btn-outline-info" onclick="toggleNew()" id="playMode">
+					<span class="fas"></span>
+				</button>
+				<button type="button" class="btn btn-outline-info" onclick="toggleConfig()" id="configToggle">
+					<span class="fas fa-arrow-right"></span>
+				</button>
+			</div>
+	        <div style="min-width:350px; max-width:350px" onclick="$(this).hide()">
+    	        <table id="network-log" style="min-width:350px; max-width:350px; white-space: nowrap; table-layout: fixed; font-size: small;">
+        	    </table>
+	        </div>
+			<div id="saving" style="text-align:center; margin:0; padding:0; width:100%; "></div>
+			<hr />
+			<div id="time" style="float:right; padding-left:4px; padding-right:4px; z-index:2"></div>
+			<div id="marquee" style="overflow:hidden">
+				<div id="index_status" style="display: inline-block;" onresize="rollMarquee()"></div>
+			</div>	
+			<hr />
+			<div id="searchDiv" style="display:none">
+				<label style="display: inline-block; padding-right: 8px" id="songLabel">Song clues:</label>
+				<div style="white-space: nowrap;">
+					<input id="songClue" type="text" class="form-control" onKeyUp="songSearch($(this)[0].value)" style="width:70%; display: inline-block; margin-right: 8px"/><select onChange="songSearch($('#songClue')[0].value)" style="width:20%; display: inline-block" class="form-control" id="searchPlayedCount"></select>
+				</div>
+				<div id="songResults" style="padding:4px;"></div>
+			</div>	
+			<div>
+			<button type="button" class="btn btn-naked" onclick="playList=[];clearPreloads();makePlaylist();" style="float:right;margin-top:-16px">
+				<span class="fas fa-meteor" title="blow playlist away"></span>
+			</button>
+			<div id="playListDiv" style="float:left; text-align:left; overflow-x:hidden; width:100%; padding:8px">
+			</div>
+			</div>
+		</div>
+		<div id="postIndexButtons" style="display:none">
+			<button type="button" onclick="saveLock=false;saveCall=0;" class="btn btn-naked" style="float:left;"><span class="fas fa-bullseye" title="quit saving index"></span></button>
+			<button type="button" onclick="fillGaps(0);" class="btn btn-naked" style="float:left;"><span class="fas fa-fill" title="fill index gaps (from drive structure)"></span></button>			
+			<button type="button" onclick="findIndex(); reloadFlag=true;" class="btn btn-naked" style="float:left;"><span class="fas fa-file-import" title="re-load index"></span></button>
+			<button type="button" onclick="handleClientLoad();saveCall=3;saveLock=false;dotColor='white';saveIndexFile();" class="btn btn-naked" style="float:left;"><span class="fas fa-file-export" title="force save index"></span></button>
+			<button type="button" onclick="document.querySelector('body').requestFullscreen();" class="btn btn-naked" style="float:left;"><span class="fas fa-expand" title="full screen"></span></button>
+		</div>
+		<button type="button" onclick="requestAccess();" class="btn btn-naked" id="sign-in-or-out-button" style="float:left"><span class="fas fa-sign-in-alt" style="font-size:128px" title="sign in"></span></button>
+		<button type="button" onclick="google.accounts.oauth2.revoke(G_TOKEN)" class="btn btn-naked" id="revoke-access-button" style="float:left;display:none;"><span class="fas fa-person-booth" title="quit this nightmare"></span></button>
+		<br />
+		<br />
+		</div>
+		<div id="config" style="overflow-x: hidden; display:none; width: auto;">
+			<button type="button" class="btn btn-outline-info" onclick="toggleScan()" id="scanning">
+				<span class="fas fa-low-vision" title="scan for new files on drive"></span>
+			</button>
+			<button type="button" class="btn btn-outline-info" onclick="createSonglistStats()">
+				<span class="fas fa-chart-bar"></span>
+			</button>
+			<button type="button" class="btn btn-outline-info" onclick="createCategorisedSongList()">
+				<span class="fas fa-align-left"></span>
+			</button>
+			<button type="button" id="checkFilesExist" style="display:none" class="btn btn-outline-info" onclick="checkFilesExist(0)">
+				<span class="fas fa-medkit" title="check file exists"></span>
+			</button>
+
+			<div id="songlistStats">
+			</div>
+			<div id="categorisedSongs">
+			</div>
+		</div>
+	</body>
+</html>
