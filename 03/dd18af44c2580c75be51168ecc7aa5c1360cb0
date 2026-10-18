@@ -1,0 +1,24 @@
+.gitignore
+  h_cf3161799b1b61 1-13
+about.html
+  h_cf3161799b1b61 1-67
+index.html
+  h_cf3161799b1b61 1-2520
+musicmetadata.js
+  h_cf3161799b1b61 1-8895
+privacy.html
+  h_cf3161799b1b61 1-13
+terms.html
+  h_cf3161799b1b61 1-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "03dd18af44c2580c75be51168ecc7aa5c1360cb0",
+  "prompts": {},
+  "humans": {
+    "h_cf3161799b1b61": {
+      "author": "Nic Stronell <nicstronell@users.noreply.github.com>"
+    }
+  }
+}
