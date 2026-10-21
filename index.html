@@ -168,18 +168,6 @@ window.addEventListener("unhandledrejection", function (event) {
 	nextIfNotPlaying();
 });
 		
-let wakeLock = null;
-
-async function requestWakeLock() {
-    try {
-        wakeLock = await navigator.wakeLock.request('screen');
-    } catch (err) {
-        console.error(`${err.name}, ${err.message}`);
-    }
-}
-
-// Call this when the user hits 'Play'
-//requestWakeLock();
 </script>
 
 <script>
@@ -481,11 +469,11 @@ function registerMedia(song) {
 //console.log('load saved song failed!!! clearing saved song');
 					localStorage.setItem('savedSongInfo','');
 					setMarquee('Could not load saved song.');
-console.log('Could not load saved song.');
+//console.log('Could not load saved song.');
 				});
 			}
 			}catch(ex){
-console.log('Could not load saved song exception.',ex);
+//console.log('Could not load saved song exception.',ex);
 			}
 		}
 	}
@@ -1453,13 +1441,13 @@ console.log('SONG Added ' + res.result.files[index].name + ' (' + mimeType + ') 
 	}
 
 	function saveIndexFile(){
-console.log('in saveIndexFile');
+//console.log('in saveIndexFile');
 		deleteFiles(musicIndexBackUpSuffix, () => {saveIndexBySuffix(musicIndexBackUpSuffix, makeCopies)});
 	}
 		
 	function makeCopies(tempId){
 		try{
-console.log('in makeCopies, tempId = ' + tempId);
+//console.log('in makeCopies, tempId = ' + tempId);
 			deleteFiles(musicIndexFileNameSuffix, () => copyFile(tempId, musicIndexFileName+'.'+musicIndexFileNameSuffix));
  
 			var now = new Date().getTime();
@@ -1467,7 +1455,7 @@ console.log('in makeCopies, tempId = ' + tempId);
 				localStorage.setItem('lastBackup', 0);
 			}
 			var lastBackup = new Date(parseInt(localStorage.getItem('lastBackup'))).getTime();
-console.log('before special back up check',lastBackup, weekAsMilliseconds, (now - weekAsMilliseconds));			
+//console.log('before special back up check',lastBackup, weekAsMilliseconds, (now - weekAsMilliseconds));			
 			if(lastBackup < (now - dayAsMilliseconds)){
 				localStorage.setItem('lastBackup', now);
 				var dateAsString = new Date().getFullYear()+'-'+(new Date().getMonth()+1)+'-'+new Date().getDate();
@@ -1477,7 +1465,7 @@ console.log('backup up special with ' + dateAsString);
 		} catch(e){
 			localStorage.setItem('lastBackup', now);
 		}
-console.log('reset saveCall & dotColour');
+//console.log('reset saveCall & dotColour');
 		saveCall = 0;
 		dotColor='green';
 		saveLock = false;
@@ -1485,7 +1473,7 @@ console.log('reset saveCall & dotColour');
 	}
 
 	function saveIndexBySuffix(suffix, callback){
-console.log('in saveIndexBySuffix before get access token');		
+//console.log('in saveIndexBySuffix before get access token');		
 		var accessToken = gapi.auth.getToken().access_token;
 		var indexContent = JSON.stringify(songList);
 		var metadata = {
@@ -1497,23 +1485,23 @@ console.log('in saveIndexBySuffix before get access token');
 		form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
 		form.append('file', indexContent);
 		var xhr = new XMLHttpRequest();
-console.log('in saveIndexBySuffix before save index');		
+//console.log('in saveIndexBySuffix before save index');		
 		xhr.open('post', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id');
 		xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
 		xhr.responseType = 'json';
 		xhr.onreadystatechange = () => {
-console.log('onreadystatechange xhr', xhr);			
+//console.log('onreadystatechange xhr', xhr);			
 console.log('onreadystatechange xhr.readyState', xhr.readyState);			
 			if (xhr.readyState==4)
         	{
-console.log('onreadystatechange xhr.response', xhr.response);			
-console.log('onreadystatechange xhr.response.id', xhr.response.id);		
+//console.log('onreadystatechange xhr.response', xhr.response);			
+//console.log('onreadystatechange xhr.response.id', xhr.response.id);		
 				setMarquee(suffix+' saved.');
 				if(xhr.response?.id)
 				{
 					if(callback)
 						callback(xhr.response.id);
-console.log('saveIndexBySuffix: suffix, xhr.response.id', suffix, xhr.response.id);				
+//console.log('saveIndexBySuffix: suffix, xhr.response.id', suffix, xhr.response.id);				
 					if(suffix == 'backup')
 						musicIndexFileID = xhr.response.id;
 				}
@@ -1735,29 +1723,29 @@ console.log('saveIndexBySuffix: suffix, xhr.response.id', suffix, xhr.response.i
 				pause(false);
 			}
 		
-console.log('saveCall', saveCall, 'dotColor', dotColor);			   
+//console.log('saveCall', saveCall, 'dotColor', dotColor);			   
 			if(saveCall > 0){
 				if (songList.length > 0){
 					saveCall ++;
 					if(saveCall >= 4){
-console.log('saveCall over 4 !!!', saveCall);			   
-console.log('saveLock = ' + saveLock + ', length = ' + songList.length); 			
+//console.log('saveCall over 4 !!!', saveCall);			   
+//console.log('saveLock = ' + saveLock + ', length = ' + songList.length); 			
 						if(saveLock === false){
 							saveLock = true;
 							window.onbeforeunload = function(){alert('Can not close window whilst saving');return false;};
-console.log('isDirty, saving index !!!'); 			
+//console.log('isDirty, saving index !!!'); 			
 							saveIndexFile();
 						}
-console.log('b saveCall', saveCall, 'dotColor', dotColor);			   
+//console.log('b saveCall', saveCall, 'dotColor', dotColor);			   
 						if(dotColor !== 'red')
 							dotColor='blue';
 					}
 					if(saveCall > 8){
-console.log('r saveCall', saveCall, 'dotColor', dotColor);			   
+//console.log('r saveCall', saveCall, 'dotColor', dotColor);			   
 						dotColor='red';
 					}
 					if(saveCall > 16){
-console.log('r saveCall', saveCall, 'dotColor', dotColor);			   
+//console.log('r saveCall', saveCall, 'dotColor', dotColor);			   
 						dotColor='grey';
 						saveCall=0;
 						window.onbeforeunload = null;
@@ -1771,9 +1759,9 @@ console.log('g saveCall', saveCall, 'dotColor', dotColor);
 			}
 			else {
 				if(reloadFlag) {
-console.log('reloading index ...');					
+//console.log('reloading index ...');					
 					loadIndex();
-console.log('reloaded index.');					
+//console.log('reloaded index.');					
 				}
 			}
 			showSavingDots();
