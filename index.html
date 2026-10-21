@@ -1160,7 +1160,12 @@ console.log('Could not load saved song exception.',ex);
 			}catch(e){}
 		}
 		if(playList.length == 0) {
-			makePlaylist();
+			var exhaustedPlaylist = playList;
+			setTimeout(function(){
+				if(playList === exhaustedPlaylist && playList.length == 0) {
+					makePlaylist();
+				}
+			}, 1000);
 		}
 	}
 
