@@ -1,0 +1,14 @@
+index.html
+  h_cf3161799b1b61 472,476,1444,1450,1458,1468,1476,1488,1493,1497-1498,1504,1726,1731-1732,1736,1739,1744,1748,1762,1764
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "7f6d9d97ff3a5c6871988c286252d0ead43ee651",
+  "prompts": {},
+  "humans": {
+    "h_cf3161799b1b61": {
+      "author": "Nic Stronell <nicstronell@users.noreply.github.com>"
+    }
+  }
+}
