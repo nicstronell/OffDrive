@@ -71,7 +71,6 @@
 				if (response && response.access_token) {
 					expireTime = new Date(Date.now() + (response.expires_in - 64) * 1000);
 					nearlyExpireTime = new Date(Date.now() + (response.expires_in - (4 * 64)) * 1000);
-					setOffTime(expireTime);
 					G_TOKEN = response.access_token;
 					pause(false);
 //console.log('G_TOKEN = ', G_TOKEN);					
@@ -121,7 +120,7 @@
 			dotColor='grey';
 			window.onbeforeunload = null;
 			if(player)
-				setTimeout(() => {if(!player.isPlaying) player.audio.play();}, 4 * callDelay);
+				setTimeout(() => {if(!player.isPlaying && !isPaused()) player.play();}, 4 * callDelay);
 		}
 		function nextIfNotPlaying()
 		{
@@ -180,17 +179,22 @@ function registerMedia(song) {
         navigator.mediaSession.metadata = new MediaMetadata({
             title: tags.title,
             artist: tags.artist,
-            album: tags.album,
-            artwork: [
-                { src: 'cover.jpg', sizes: '512x512', type: 'image/jpeg' }
-            ]
+			album: tags.album
         });
 
-        // Crucial: Register actions to keep the session "alive"
-        navigator.mediaSession.setActionHandler('play', () => {  player.audio.play(); });
-        navigator.mediaSession.setActionHandler('pause', () => {  player.audio.pause(); });
-        navigator.mediaSession.setActionHandler('nexttrack', () => { playNextSong(); });
-        navigator.mediaSession.setActionHandler('previoustrack', () => { makePlaylist(); });
+		const handlers = {
+			play: () => { pause(false); if (waitingForNextSong) playNextSong(); else player.play(); },
+			pause: () => { pause(true); player.audio.pause(); },
+			nexttrack: () => { playNextSong(); },
+			previoustrack: () => { makePlaylist(); }
+		};
+		Object.entries(handlers).forEach(([action, handler]) => {
+			try {
+				navigator.mediaSession.setActionHandler(action, handler);
+			} catch (error) {
+				console.warn('Unsupported media action:', action, error);
+			}
+		});
     }
 }
 	class Song {
@@ -227,7 +231,23 @@ function registerMedia(song) {
 //			this.audio.addEventListener("ended", () => {
 // 				playTrack(getNextSong());
 //			});
-			this.audio.onplay = () => { saveCall++; };
+			this.audio.onplay = () => {
+				pause(false);
+				saveCall++;
+				if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+			};
+			this.audio.onpause = () => {
+				if (!this.audio.ended) pause(true);
+				if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+			};
+		}
+		play() {
+			const playback = this.audio.play();
+			if (playback) playback.catch((error) => {
+				if (error.name === 'AbortError') return;
+				pause(true);
+				$('#index_status').text('Playback stopped: ' + error.message + '. Tap Play to resume.');
+			});
 		}
 		loadSong(song, onSuccess, onFailure) {
 //console.log('loadSong: this.playing', this.playing);			
@@ -293,7 +313,8 @@ function registerMedia(song) {
 		}
 		afterLoadSong(onSuccess, song){
 //console.log('afterLoadSong, about to play: isPaused()', isPaused());			
-			if(!isPaused()) this.audio.play();
+			waitingForNextSong = false;
+			if(!isPaused()) this.play();
 			if(song.s == '?') {
 				song.s = '-';
 			}
@@ -387,6 +408,7 @@ function registerMedia(song) {
 	var songList = [];
 	var playList = [];
 	var preLoads = [];
+	var waitingForNextSong = false;
 	var player = null;
 	var nothingPlaying = true;			
 	var saveCall = 0;	
@@ -595,25 +617,25 @@ function registerMedia(song) {
 }
 	
 	function playNextSong(){
-		player.kill();
+		waitingForNextSong = true;
 		for(var indexCheck in preLoads) {
 //console.log('removing excess preloads... : preLoads', preLoads);			
 //console.log('removing excess preloads... : indexCheck', indexCheck);			
 //console.log('removing excess preloads... : playList', playList);			
 //console.log('removing excess preloads... : playList.filter(s => s.i ==== indexCheck)', playList.filter(s => s.i === indexCheck).length);
-			if(playList.filter(s => s.i === indexCheck).length === 0) {
+			if(indexCheck !== player.songID && playList.filter(s => s.i === indexCheck).length === 0) {
 //console.log('removing excess preloads ... deleting preLoad ', indexCheck);				
 				removePreloadedSong(indexCheck);
 			}
 		}
 
 //console.log('playNextSong: playList.length, G_TOKEN', playList.length, G_TOKEN);		
-		if(G_TOKEN != null){
+		{
 //console.log('playNextSong - no next song loaded', playList, playList.length, playList.filter(function(i){return i != null}).length);	
-			loadPreLoads(Date.now());
+			if(G_TOKEN != null) loadPreLoads(Date.now());
 			var loadedPreloads = Object.entries(preLoads).filter(function([key, value]) {
 //console.log('playNextSong - preload filter - val = ', value);				
-  				return value !== null && value !== loadingConst; 
+				return value?.url && playList.some(song => song.i === key);
 			});
 //console.log('playNextSong - preloaded + loadedPreloads', preLoads, loadedPreloads);			
 			var preloadedSongIds = loadedPreloads.map(([key]) => key); 
@@ -896,6 +918,10 @@ function registerMedia(song) {
             preLoads[songID] = {
                 url: audioUrl
             };
+
+			if (waitingForNextSong && !isPaused()) {
+				playNextSong();
+			}
 
             console.log(
                 'preloadSong: preLoads, count, playList.length',
@@ -1717,11 +1743,7 @@ console.log('onreadystatechange xhr.readyState', xhr.readyState);
 			}
 			
 //console.log('player.isPlaying', player.isPlaying);			   
-			if(!player.isPlaying)
-			{
-//console.log('Pausing!!!');			   
-				pause(false);
-			}
+			if(waitingForNextSong && !isPaused()) playNextSong();
 		
 //console.log('saveCall', saveCall, 'dotColor', dotColor);			   
 			if(saveCall > 0){
