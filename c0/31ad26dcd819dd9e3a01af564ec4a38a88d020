@@ -1,0 +1,28 @@
+index.html
+  s_d9558043962416::t_6accc7472dbf8b 638
+  s_d9558043962416::t_fb1d99c5c4577d 123,182,185,187-197,234-250,316-317,411,620,626,633,635,922-925,1746
+  s_d9558043962416::t_7a069d0e80c7ce 186
+.harness/observations.md
+  s_d9558043962416::t_7a069d0e80c7ce 1-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "c031ad26dcd819dd9e3a01af564ec4a38a88d020",
+  "prompts": {},
+  "humans": {
+    "h_cf3161799b1b61": {
+      "author": "Nic Stronell <nicstronell@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_d9558043962416": {
+      "agent_id": {
+        "tool": "github-copilot",
+        "id": "b628abb4-6dda-4632-b76a-9a7f878d3bc7",
+        "model": "gpt-4o-mini-2024-07-18"
+      },
+      "human_author": "Nic Stronell <nicstronell@users.noreply.github.com>"
+    }
+  }
+}
