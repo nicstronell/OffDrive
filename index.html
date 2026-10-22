@@ -333,6 +333,7 @@ function registerMedia(song) {
 				onSuccess();
 			setTimeout(updatePlayingSongStats, 1024);
 			removeFromPlaylist(this.songID);
+			loadPreLoads(Date.now());
 		}
 		kill() {
 			this.audio.pause();
@@ -609,6 +610,10 @@ function registerMedia(song) {
 	function removePreloadedSong(songID) {
     const item = preLoads[songID];
 
+	if (item?.url && player && item.url === player.audio.src) {
+		return;
+	}
+
     if (item?.url?.startsWith('blob:')) {
         URL.revokeObjectURL(item.url);
     }
@@ -853,7 +858,8 @@ function registerMedia(song) {
 	var preloadingKey=null;
 	function loadPreLoads(lKey){
 //console.log('in loadPreLoads: lKey, preloadingKey, playList.length, preLoads, Object.keys(preLoads).length', lKey, preloadingKey, playList.length, preLoads, Object.keys(preLoads).length);
-		if((preloadingKey==lKey || preloadingKey===null) && playList && playList.length && preLoads && playList.length != Object.keys(preLoads).length) {
+		if((preloadingKey==lKey || preloadingKey===null) && playList && playList.length && preLoads &&
+			playList.some(song => preLoads[song.i] === undefined)) {
 			preloadingKey=lKey;
 			for(var id in playList){
 //console.log('loadPreLoads: playList[id].i', playList[id].i, preLoads);
@@ -979,7 +985,6 @@ function registerMedia(song) {
 	
 	function clearPreloads() {
     Object.keys(preLoads).forEach(removePreloadedSong);
-    preLoads = [];
 }
 	
 	function makePlaylist(){
