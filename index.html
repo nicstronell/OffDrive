@@ -123,6 +123,9 @@
 					event: eventName,
 					visibility: document.visibilityState,
 					position: audio.currentTime,
+					duration: Number.isFinite(audio.duration) ? audio.duration : null,
+					trackSequence: player.trackSequence,
+					mediaPlaybackState: navigator.mediaSession?.playbackState || null,
 					paused: audio.paused,
 					ended: audio.ended,
 					readyState: audio.readyState,
@@ -236,8 +239,8 @@ function registerMedia(song) {
         });
 
 		const handlers = {
-			play: () => { pause(false); if (waitingForNextSong) playNextSong(); else player.play(); },
-			pause: () => { pause(true); player.audio.pause(); },
+			play: () => { recordPlaybackEvent('media-action:play'); pause(false); if (waitingForNextSong) playNextSong(); else player.play(); },
+			pause: () => { pause(true); player.pauseAudio('media-session'); },
 			nexttrack: () => { playNextSong(); },
 			previoustrack: () => { makePlaylist(); }
 		};
@@ -278,6 +281,7 @@ function registerMedia(song) {
 			this.audio = audio;
 //console.log('Player constructor: this.audio', this.audio);			
 			this.songID = '';
+			this.trackSequence = 0;
 			this.fileTags = new SongTags();
 			this.treeTags = new SongTags();
 			['loadstart', 'loadeddata', 'play', 'playing', 'pause', 'waiting', 'stalled', 'ended', 'error', 'emptied'].forEach(eventName => {
@@ -290,16 +294,25 @@ function registerMedia(song) {
 			this.audio.onplay = () => {
 				pause(false);
 				saveCall++;
+			};
+			this.audio.onplaying = () => {
 				if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
 			};
 			this.audio.onpause = () => {
-				if (!this.audio.ended) pause(true);
+				if (this.audio.ended) return;
+				pause(true);
 				if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
 			};
 		}
+		pauseAudio(reason) {
+			recordPlaybackEvent('app-pause:' + reason);
+			this.audio.pause();
+		}
 		play() {
+			recordPlaybackEvent('app-play');
 			const playback = this.audio.play();
 			if (playback) playback.catch((error) => {
+				recordPlaybackEvent('play-rejected:' + error.name);
 				if (error.name === 'AbortError') return;
 				pause(true);
 				$('#index_status').text('Playback stopped: ' + error.message + '. Tap Play to resume.');
@@ -308,6 +321,7 @@ function registerMedia(song) {
 		loadSong(song, onSuccess, onFailure) {
 //console.log('loadSong: this.playing', this.playing);			
 			if(!this.audio.playing){
+				this.trackSequence++;
 				this.songID = song.i;
 //console.log('loadSong: song, this.songID', song, this.songID);			
 //console.log('loadSong: trying to load', song);				
@@ -392,7 +406,7 @@ function registerMedia(song) {
 			loadPreLoads(Date.now());
 		}
 		kill() {
-			this.audio.pause();
+			this.pauseAudio('unload');
 			this.audio.src = null;
 			this.songID = '';
 			this.treeTags = new SongTags();
@@ -778,7 +792,7 @@ function registerMedia(song) {
 
 	function togglePlayback(){
 		var audio = player.audio;
-		audio.paused ? audio.play() : audio.pause()
+		audio.paused ? player.play() : player.pauseAudio('playback-button');
 	}
 
 	function setCursor(e){
@@ -2590,7 +2604,7 @@ function getFileTags(songID, callback) {
 			</div>
 		</div>
 		<footer style="clear:both; padding:8px; font-size:small; text-align:left; max-width:100vw; box-sizing:border-box; overflow-wrap:anywhere;">
-			Last updated: <time datetime="2026-10-22">22 Oct 2026</time> (<span id="appVersion">v2026.10.22.3</span>)
+			Last updated: <time datetime="2026-10-22">22 Oct 2026</time> (<span id="appVersion">v2026.10.22.4</span>)
 			<button type="button" class="btn btn-naked" onclick="reloadLatestApp()" title="Reload latest app (stops playback)" aria-label="Reload latest app (stops playback)">
 				<span class="fas fa-sync-alt" aria-hidden="true"></span>
 			</button>
