@@ -113,6 +113,13 @@
   	<script src="https://kit.fontawesome.com/1f27e20cdd.js" crossorigin="anonymous"></script>
 	<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
 	<script>
+		function reloadLatestApp() {
+			if (!confirm('Reload the latest app? This will stop playback.')) return;
+			const url = new URL(window.location.href);
+			url.searchParams.set('_appUpdate', Date.now().toString());
+			window.location.replace(url.href);
+		}
+
 		function playIfNotPlaying()
 		{
 			saveLock=false;
@@ -2533,5 +2540,11 @@ function getFileTags(songID, callback) {
 			<div id="categorisedSongs">
 			</div>
 		</div>
+		<footer style="clear:both; padding:8px; font-size:small; text-align:center;">
+			Last updated: <time datetime="2026-10-22">22 Oct 2026</time> (v2026.10.22.1)
+			<button type="button" class="btn btn-naked" onclick="reloadLatestApp()" title="Reload latest app (stops playback)" aria-label="Reload latest app (stops playback)">
+				<span class="fas fa-sync-alt" aria-hidden="true"></span>
+			</button>
+		</footer>
 	</body>
 </html>
