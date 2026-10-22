@@ -113,6 +113,52 @@
   	<script src="https://kit.fontawesome.com/1f27e20cdd.js" crossorigin="anonymous"></script>
 	<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
 	<script>
+		function recordPlaybackEvent(eventName) {
+			if (!player) return;
+			const audio = player.audio;
+			try {
+				const events = JSON.parse(localStorage.getItem('playbackEvents') || '[]');
+				events.push({
+					at: new Date().toISOString(),
+					event: eventName,
+					visibility: document.visibilityState,
+					position: audio.currentTime,
+					paused: audio.paused,
+					ended: audio.ended,
+					readyState: audio.readyState,
+					networkState: audio.networkState,
+					error: audio.error ? { code: audio.error.code, message: audio.error.message } : null
+				});
+				localStorage.setItem('playbackEvents', JSON.stringify(events.slice(-100)));
+			} catch (error) {
+				console.warn('Could not record playback event', error);
+			}
+		}
+
+		function downloadPlaybackDiagnostics() {
+			recordPlaybackEvent('diagnostics-download');
+			const report = {
+				version: document.getElementById('appVersion').textContent,
+				browser: navigator.userAgent,
+				events: JSON.parse(localStorage.getItem('playbackEvents') || '[]')
+			};
+			const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = 'offdrive-playback-diagnostics.json';
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			setTimeout(() => URL.revokeObjectURL(url), 60000);
+		}
+
+		['visibilitychange', 'freeze', 'resume'].forEach(eventName => {
+			document.addEventListener(eventName, () => recordPlaybackEvent(eventName));
+		});
+		['pagehide', 'pageshow'].forEach(eventName => {
+			window.addEventListener(eventName, () => recordPlaybackEvent(eventName));
+		});
+
 		function reloadLatestApp() {
 			if (!confirm('Reload the latest app? This will stop playback.')) return;
 			const url = new URL(window.location.href);
@@ -234,6 +280,9 @@ function registerMedia(song) {
 			this.songID = '';
 			this.fileTags = new SongTags();
 			this.treeTags = new SongTags();
+			['loadstart', 'loadeddata', 'play', 'playing', 'pause', 'waiting', 'stalled', 'ended', 'error', 'emptied'].forEach(eventName => {
+				this.audio.addEventListener(eventName, () => recordPlaybackEvent(eventName));
+			});
 			this.audio.onended = () => { this.playing = false; playNextSong(); };
 //			this.audio.addEventListener("ended", () => {
 // 				playTrack(getNextSong());
@@ -2540,10 +2589,13 @@ function getFileTags(songID, callback) {
 			<div id="categorisedSongs">
 			</div>
 		</div>
-		<footer style="clear:both; padding:8px; font-size:small; text-align:center;">
-			Last updated: <time datetime="2026-10-22">22 Oct 2026</time> (v2026.10.22.1)
+		<footer style="clear:both; padding:8px; font-size:small; text-align:left; max-width:100vw; box-sizing:border-box; overflow-wrap:anywhere;">
+			Last updated: <time datetime="2026-10-22">22 Oct 2026</time> (<span id="appVersion">v2026.10.22.3</span>)
 			<button type="button" class="btn btn-naked" onclick="reloadLatestApp()" title="Reload latest app (stops playback)" aria-label="Reload latest app (stops playback)">
 				<span class="fas fa-sync-alt" aria-hidden="true"></span>
+			</button>
+			<button type="button" class="btn btn-naked" onclick="downloadPlaybackDiagnostics()" title="Download playback diagnostics" aria-label="Download playback diagnostics">
+				<span class="fas fa-file-download" aria-hidden="true"></span>
 			</button>
 		</footer>
 	</body>
