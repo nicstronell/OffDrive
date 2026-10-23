@@ -1826,6 +1826,7 @@ console.log('onreadystatechange xhr.readyState', xhr.readyState);
 			}
 			
 //console.log('player.isPlaying', player.isPlaying);			   
+			if(!player.isPlaying && isPaused()) pause(false);
 			if(waitingForNextSong && !isPaused()) playNextSong();
 		
 //console.log('saveCall', saveCall, 'dotColor', dotColor);			   
@@ -1858,7 +1859,7 @@ console.log('onreadystatechange xhr.readyState', xhr.readyState);
 				}
 				else{
 					saveCall=0;
-console.log('g saveCall', saveCall, 'dotColor', dotColor);			   
+//console.log('g saveCall', saveCall, 'dotColor', dotColor);			   
 					dotColor='green';
 				}
 			}
