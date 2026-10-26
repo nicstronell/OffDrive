@@ -60,6 +60,8 @@
     var gapiInited = false;
 	var G_TOKEN = null;	
 	var client = null;
+	var lastAuthorizationRequest = 0;
+	var authorizationFocusTimer = null;
 
     function handleClientLoad() {
 //console.log('inside client load');		
@@ -86,21 +88,44 @@
 					$('#index_status').html('You have not authorized this app or you are signed out.');
 				}
 			},
+			error_callback: () => {
+				$('#index_status').text('Sign-in could not finish. Tap Sign In to reconnect to Google.');
+			},
 	  	});
 	}
 
 	function requestAccess(){
+		lastAuthorizationRequest = Date.now();
 		G_TOKEN = null;	
 		offTime = null;
 		client.requestAccessToken({ prompt: '' });
 	}
+
+	function hasValidGoogleToken(){
+		return Boolean(G_TOKEN && expireTime && Date.now() < expireTime.getTime());
+	}
+
+	function reauthorizeOnFocus(){
+		clearTimeout(authorizationFocusTimer);
+		if (document.visibilityState !== 'visible') return;
+		authorizationFocusTimer = setTimeout(() => {
+			if (document.visibilityState !== 'visible' || !gapiInited || !client || hasValidGoogleToken()) return;
+			if (Date.now() - lastAuthorizationRequest < 5000) return;
+			requestAccess();
+		}, 300);
+	}
+
+	window.addEventListener('focus', reauthorizeOnFocus);
+	window.addEventListener('pageshow', reauthorizeOnFocus);
+	document.addEventListener('visibilitychange', reauthorizeOnFocus);
+
       async function initializeGapiClient() {
         await gapi.client.init({
           apiKey: API_KEY,
           discoveryDocs: [DISCOVERY_DOC],
         });
          gapiInited = true;
-        client.requestAccessToken({ prompt: '' });
+		requestAccess();
       }
 	  function handleAPILoad() {
       	gapi.load('client', initializeGapiClient);
@@ -291,6 +316,7 @@ function registerMedia(song) {
 			this.audio.onended = () => {
 				this.playing = false;
 				waitingForNextSong = true;
+				if (!hasValidGoogleToken()) pause(true);
 				if (!isPaused()) {
 					playNextSong();
 				} else {
@@ -317,6 +343,7 @@ function registerMedia(song) {
 			this.audio.pause();
 		}
 		play() {
+			if (!hasValidGoogleToken() && (this.audio.ended || waitingForNextSong)) return;
 			recordPlaybackEvent('app-play');
 			const playback = this.audio.play();
 			if (playback) playback.catch((error) => {
@@ -326,6 +353,7 @@ function registerMedia(song) {
 			});
 		}
 		loadSong(song, onSuccess, onFailure) {
+			if (!hasValidGoogleToken()) return;
 //console.log('loadSong: this.playing', this.playing);			
 			if(!this.audio.playing){
 				this.trackSequence++;
@@ -390,6 +418,11 @@ function registerMedia(song) {
 		}
 		afterLoadSong(onSuccess, song){
 //console.log('afterLoadSong, about to play: isPaused()', isPaused());			
+			if (!hasValidGoogleToken()) {
+				waitingForNextSong = true;
+				pause(true);
+				return;
+			}
 			waitingForNextSong = false;
 			if(!isPaused()) this.play();
 			if(song.s == '?') {
@@ -656,7 +689,7 @@ function registerMedia(song) {
 		
 	
 	async function downloadDriveAudioUrl(fileId, mimeType) {
-    if (!G_TOKEN) {
+	if (!hasValidGoogleToken()) {
         throw new Error('No Google access token');
     }
 
@@ -700,6 +733,10 @@ function registerMedia(song) {
 }
 	
 	function playNextSong(){
+		if (!hasValidGoogleToken()) {
+			pause(true);
+			return;
+		}
 		waitingForNextSong = true;
 		for(var indexCheck in preLoads) {
 //console.log('removing excess preloads... : preLoads', preLoads);			
@@ -935,6 +972,10 @@ function registerMedia(song) {
 	
 	var preloadingKey=null;
 	function loadPreLoads(lKey){
+		if (!hasValidGoogleToken()) {
+			preloadingKey = null;
+			return;
+		}
 //console.log('in loadPreLoads: lKey, preloadingKey, playList.length, preLoads, Object.keys(preLoads).length', lKey, preloadingKey, playList.length, preLoads, Object.keys(preLoads).length);
 		if((preloadingKey==lKey || preloadingKey===null) && playList && playList.length && preLoads &&
 			playList.some(song => preLoads[song.i] === undefined)) {
@@ -1066,6 +1107,7 @@ function registerMedia(song) {
 }
 	
 	function makePlaylist(){
+		if (!hasValidGoogleToken()) return;
 //console.log('makePlaylist: songList.length', songList.length);		
 		if(songList.length>0){
 			clearPreloads();
@@ -1141,11 +1183,13 @@ function registerMedia(song) {
 	}
 
 	function makeStatusPlaylist(status){
+		if (!hasValidGoogleToken()) return;
 		playList = songList.filter(function(i){ return i.s === status});
 		refreshPlaylist();
 	}
 
 	function playAlbum(){
+		if (!hasValidGoogleToken()) return;
 		clearPreloads();
 		//loadingAPreload = false;
 //console.log('filter on player', player);
@@ -1159,6 +1203,7 @@ function registerMedia(song) {
 	}
 
 	function playArtist(){
+		if (!hasValidGoogleToken()) return;
 		clearPreloads();
 		//loadingAPreload = false;
 		var artistToPlay = player.Tags.artist;
@@ -1826,8 +1871,8 @@ console.log('onreadystatechange xhr.readyState', xhr.readyState);
 			}
 			
 //console.log('player.isPlaying', player.isPlaying);			   
-			if(!player.isPlaying && isPaused()) pause(false);
-			if(waitingForNextSong && !isPaused()) playNextSong();
+			if(hasValidGoogleToken() && !player.isPlaying && isPaused()) pause(false);
+			if(hasValidGoogleToken() && waitingForNextSong && !isPaused()) playNextSong();
 		
 //console.log('saveCall', saveCall, 'dotColor', dotColor);			   
 			if(saveCall > 0){
