@@ -1,0 +1,24 @@
+index.html
+  s_0742910c2a16c4::t_7e1f839a2f51bc 2660
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "b9d6e9d27671c65ba187fbe5df5db69bcbb8eb76",
+  "prompts": {},
+  "humans": {
+    "h_cf3161799b1b61": {
+      "author": "Nic Stronell <nicstronell@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_0742910c2a16c4": {
+      "agent_id": {
+        "tool": "github-copilot",
+        "id": "4987c02a-2088-49b9-9114-94c613752345",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Nic Stronell <nicstronell@users.noreply.github.com>"
+    }
+  }
+}
