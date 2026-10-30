@@ -328,7 +328,9 @@ function registerMedia(song) {
 // 				playTrack(getNextSong());
 //			});
 			this.audio.onplay = () => {
+				pause(false);
 				saveCall++;
+				if (waitingForNextSong) playNextSong();
 			};
 			this.audio.onplaying = () => {
 				if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
@@ -1871,7 +1873,6 @@ console.log('onreadystatechange xhr.readyState', xhr.readyState);
 			}
 			
 //console.log('player.isPlaying', player.isPlaying);			   
-			if(hasValidGoogleToken() && !player.isPlaying && isPaused()) pause(false);
 			if(hasValidGoogleToken() && waitingForNextSong && !isPaused()) playNextSong();
 		
 //console.log('saveCall', saveCall, 'dotColor', dotColor);			   
@@ -2506,7 +2507,7 @@ function getFileTags(songID, callback) {
 				<button id="pauseButton" type="button" class="btn btn-naked" onclick="pause();" title="Stop after this track" aria-label="Stop after this track" aria-pressed="false" style="border-width:0px; border-color:black; min-height:42px;max-height:42px;min-width:42px;max-width:42px;">
 					<span class="fas fa-pause"></span>
 				</button>
-				<button type="button" class="btn btn-primary" onclick="playNextSong()">
+				<button type="button" class="btn btn-primary" onclick="pause(false);playNextSong()">
 					<span class="fas fa-step-forward"></span>
 				</button>
 				<button type="button" class="btn btn-secondary" onclick="updateStatus('P', player.songID)">
