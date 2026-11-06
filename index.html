@@ -1615,7 +1615,7 @@ console.log('SONG Added ' + res.result.files[index].name + ' (' + mimeType + ') 
 			if(lastBackup < (now - dayAsMilliseconds)){
 				localStorage.setItem('lastBackup', now);
 				var dateAsString = new Date().getFullYear()+'-'+(new Date().getMonth()+1)+'-'+new Date().getDate();
-console.log('backup up special with ' + dateAsString); 				
+//console.log('backup up special with ' + dateAsString); 				
 				deleteFiles(dateAsString, () => copyFile(tempId, musicIndexFileName+'.'+dateAsString));
 			}
 		} catch(e){
@@ -1647,7 +1647,7 @@ console.log('backup up special with ' + dateAsString);
 		xhr.responseType = 'json';
 		xhr.onreadystatechange = () => {
 //console.log('onreadystatechange xhr', xhr);			
-console.log('onreadystatechange xhr.readyState', xhr.readyState);			
+//console.log('onreadystatechange xhr.readyState', xhr.readyState);			
 			if (xhr.readyState==4)
         	{
 //console.log('onreadystatechange xhr.response', xhr.response);			
