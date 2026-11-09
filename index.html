@@ -1795,6 +1795,10 @@ console.log('SONG Added ' + res.result.files[index].name + ' (' + mimeType + ') 
 		setMarquee('Turning off after ... ('+offTimeAsString+')');
 	}
 	function increaseOffTime(){
+		if(new Date(Date.now()) > nearlyExpireTime){
+			requestAccess();
+			return;
+		}
 		if(offTime === null){
 			offTime = new Date(Date.now());
 		}
