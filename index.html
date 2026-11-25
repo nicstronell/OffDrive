@@ -77,6 +77,7 @@
 					pause(false);
 //console.log('G_TOKEN = ', G_TOKEN);					
 					$('#sign-in-or-out-button').html('<span class="fas fa-sign-out-alt"></span>');
+					updateDelayPauseButton();
 					$('#revoke-access-button').css('display', 'inline-block');
 					$('#index_status').html('You are currently signed in and have granted access to this app.');
 					reloadFlag=true;
@@ -84,6 +85,7 @@
 					setTimeout(initialise, callDelay*4);
 				} else {
 					$('#sign-in-or-out-button').html('<span class="fas fa-sign-in-alt"></span>');
+					updateDelayPauseButton();
 					$('#revoke-access-button').css('display', 'none');
 					$('#index_status').html('You have not authorized this app or you are signed out.');
 				}
@@ -1794,6 +1796,16 @@ console.log('SONG Added ' + res.result.files[index].name + ' (' + mimeType + ') 
 		$('#delayPauseButton').prop('title', offTimeAsString);
 		setMarquee('Turning off after ... ('+offTimeAsString+')');
 	}
+	function updateDelayPauseButton(){
+		var nearlyExpired = new Date(Date.now()) > nearlyExpireTime;
+		$('#delayPauseButton span').attr('class', nearlyExpired
+			? $('#sign-in-or-out-button span').attr('class')
+			: 'fas fa-clock');
+		$('#delayPauseButton').prop('title', nearlyExpired
+			? 'Sign in to Google'
+			: (offTime === null ? 'not set' : offTime.toLocaleTimeString()));
+		$('#delayPauseButton').attr('aria-label', nearlyExpired ? 'Sign in to Google' : 'Set sleep timer');
+	}
 	function increaseOffTime(){
 		if(new Date(Date.now()) > nearlyExpireTime){
 			requestAccess();
@@ -1869,12 +1881,7 @@ console.log('SONG Added ' + res.result.files[index].name + ' (' + mimeType + ') 
 				$('title').text(title);
 			}
 			
-			if( new Date(Date.now()) > nearlyExpireTime){
-				$('#delayPauseButton').css('background-color', 'pink');
-			}
-			else{
-				$('#delayPauseButton').css('background-color', '');
-			}
+			updateDelayPauseButton();
 			
 //console.log('player.isPlaying', player.isPlaying);			   
 			if(hasValidGoogleToken() && waitingForNextSong && !isPaused()) playNextSong();
@@ -2505,7 +2512,7 @@ function getFileTags(songID, callback) {
 		</div>
 		<div id="playDiv" style="padding:8px; display:none;">
 			<div id="playButtons" style="text-align: center;">
-				<button type="button" class="btn btn-outline-info" id="delayPauseButton" onclick="increaseOffTime()">
+				<button type="button" class="btn btn-outline-info" id="delayPauseButton" onclick="increaseOffTime()" title="not set" aria-label="Set sleep timer">
 					<span class="fas fa-clock"></span>
 				</button>
 				<button id="pauseButton" type="button" class="btn btn-naked" onclick="pause();" title="Stop after this track" aria-label="Stop after this track" aria-pressed="false" style="border-width:0px; border-color:black; min-height:42px;max-height:42px;min-width:42px;max-width:42px;">
