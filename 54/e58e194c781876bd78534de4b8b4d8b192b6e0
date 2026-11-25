@@ -1,0 +1,19 @@
+index.html
+  s_0259f92ebf26de::t_4b7c36e1631756 80,88,1799-1808,1884,2515
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "54e58e194c781876bd78534de4b8b4d8b192b6e0",
+  "prompts": {},
+  "sessions": {
+    "s_0259f92ebf26de": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "cd5b2df6-d7f3-4b2f-83a9-5334e5e63fbf",
+        "model": "unknown"
+      },
+      "human_author": "Nic Stronell <nicstronell@users.noreply.github.com>"
+    }
+  }
+}
